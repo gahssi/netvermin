@@ -5,11 +5,11 @@ Proof-of-concept network worm written in Python
 
 ### Features
 
+- **Network scanning.** Uses `nmap` and `ip route` parsing to discover hosts on the local network.
+- **SSH-based propagation.** Attempts dictionary attacks on SSH-enabled machines using pre-defined lists of usernames and passwords.
+  - **SMB-based propagation** is a WIP.
+- **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a note as explanation.
 - **Polymorphism.** Each mutation creates a new worm variant with unique encryption parameters.
-- **Network scanning.** Uses nmap and `ip route` parsing to discover hosts on the local network.
-- **SSH-based propagation.** Attempts dictionary attacks on SSH-enabled machines using a list of pre-defined usernames and passwords.
-  - **SMB-based propagation** is a WIP
-- **Payload simulation.** Encrypts files and leaves a note on infected machines.
 - **Logging.** Detailed logging is implemented using a custom colorized formatter.
 
 ---
