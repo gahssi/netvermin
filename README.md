@@ -1,7 +1,7 @@
 # netvermin
 Proof-of-concept network worm written in Python
 
-> **Disclaimer:** This project is for **educational and research purposes only**. It is intended to demonstrate malware development techniques in a controlled test environment. **Do not deploy or use this code on production systems or any network without proper authorization.**
+> **PLEASE READ:** This project is for **educational and research purposes only**. It is intended to demonstrate malware development techniques in a controlled test environment. **Do not deploy or use this code on production systems or any network without proper authorization.**
 
 ### Features
 
@@ -30,3 +30,8 @@ You can install the required packages using `pip`:
 
 ```bash
 pip3 install --user netifaces nmap netaddr
+```
+
+### Disclaimer
+
+This code is provided "as-is" without any warranty. The authors and contributors shall not be liable for any damages resulting from the use of this code. Use it only in a legal, ethical, and controlled environment.

