@@ -7,7 +7,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 
 - **Network scanning.** Uses `nmap` and `ip route` parsing to discover hosts on the local network.
 - **SSH-based propagation.** Attempts dictionary attacks to crack target machines' weak SSH credentials.
-  - **SMB-based propagation** is a WIP.
+  - **SMB-based propagation** is in progress.
 - **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a note regarding the attack scenario.
 - **Polymorphism.** Each mutation creates a new worm variant with unique encryption parameters.
 - **Logging.** Detailed logging is implemented using a custom colorized formatter.
@@ -18,7 +18,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
   
 - VirtualBox or any other virtualization software (for creating isolated test environments)
 - Linux (for the VM operating system)
-  - Currently working to extend worm to Windows systems. Looking into `pyinstaller` to convert worm package to a Windows executable (this will require rewriting network scanning module since porting `nmap` to Windows is more work).
+  - Porting worm to Windows is in progress - looking into `pyinstaller` to package worm script into a Windows executable
 - Python (recommended Python 3.10 or later)
   
 Install the required packages on all hosts:
