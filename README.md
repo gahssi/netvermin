@@ -5,7 +5,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 
 ### Features
 
-- **Network scanning.** Uses `ayncio` and system route parsing to discover hosts on the local network.
+- **Network scanning.** Uses `socket` library and system route parsing to discover hosts on the local network. Comparable in speed to using `nmap` with aggressive timing.
 - **SSH-based propagation.** Attempts a dictionary attack to crack hosts' SSH credentials.
   - **SMB-based propagation** is a work in progress.
 - **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a note regarding the attack scenario.
@@ -18,13 +18,14 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
   
 - VirtualBox or any other virtualization software (for creating isolated test environments)
 - Linux (for the VM operating system)
-  - Porting worm to Windows is a work in progress; looking into `pyinstaller` to bundle worm script and dependencies into standalone Windows executable
+  - Windows-compatible worm is a work in progress, also looking into `pyinstaller` to bundle worm script and dependencies into standalone Windows executable
 - Python (recommended Python 3.10 or later)
+- SSH
   
 Install the required packages on all VMs:
 ```bash
-sudo apt install python3 python3-pip nmap
-pip3 install --user netifaces python-nmap netaddr
+sudo apt install python3 python3-pip openssh-server
+pip3 install --user netifaces netaddr
 ```
 
 Execute the worm via:
