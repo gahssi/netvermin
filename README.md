@@ -21,7 +21,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
   - Porting worm to Windows is in progress - looking into `pyinstaller` to package worm script into a Windows executable
 - Python (recommended Python 3.10 or later)
   
-Install the required packages on all hosts:
+Install the required packages on all VMs:
 ```bash
 sudo apt install python3 python3-pip nmap
 pip3 install --user netifaces python-nmap netaddr
