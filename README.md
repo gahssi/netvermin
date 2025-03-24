@@ -6,7 +6,7 @@ Proof-of-concept network worm written in Python
 ### Features
 
 - **Network scanning.** Uses `nmap` and `ip route` parsing to discover hosts on the local network.
-- **SSH-based propagation.** Attempts dictionary attacks on SSH-enabled machines using pre-defined lists of usernames and passwords.
+- **SSH-based propagation.** Attempts dictionary attacks to crack target machines' weak SSH credentials.
   - **SMB-based propagation** is a WIP.
 - **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a note as explanation.
 - **Polymorphism.** Each mutation creates a new worm variant with unique encryption parameters.
@@ -19,7 +19,7 @@ Proof-of-concept network worm written in Python
 To run the worm in your test environment, you will need:
 
 - **Operating System:** Linux
-  - Windows compatibility is a WIP. Currently looking into `pyinstaller` to convert worm to a .exe file.
+  - Windows port is a WIP. Currently looking into `pyinstaller` to convert worm to a .exe file (will require rewriting network scanning module since porting `nmap` to Windows is more complex).
 - **Python:** Python 3.6+ (recommended Python 3.10 or later)
 - **Required Python Packages:**  
   - `netifaces`
