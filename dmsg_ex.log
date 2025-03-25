@@ -1,0 +1,188 @@
+2025-03-24 19:03:46,531 - Scanning local interfaces
+2025-03-24 19:03:46,532 - Interface found: {'addr': '127.0.0.1', 'netmask': '255.0.0.0', 'peer': '127.0.0.1'}
+2025-03-24 19:03:46,532 - Interface found: {'addr': '10.0.0.10', 'netmask': '255.255.255.0', 'broadcast': '10.0.0.255'}
+2025-03-24 19:03:46,532 - Scanning routes...
+2025-03-24 19:03:46,535 - Routes discovered: [IPNetwork('10.0.0.0/24'), IPNetwork('169.254.0.0/16')]
+2025-03-24 19:03:46,535 - Found 3 subnets.
+2025-03-24 19:03:46,535 - Permitted subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:03:46,535 - Splitting subnets...
+2025-03-24 19:03:46,535 - Generated 1 subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:03:46,535 - Updating infected log...
+2025-03-24 19:03:46,535 - Scanning subnets for new targets...
+2025-03-24 19:03:49,709 - Discovered hosts: ['10.0.0.40', '10.0.0.30', '10.0.0.20']
+2025-03-24 19:03:49,714 - Attempting SSH connection...
+2025-03-24 19:03:49,716 - Attempting SSH connection to 10.0.0.40 with admin:pass4
+2025-03-24 19:03:49,792 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:50,385 - SSH authentication failed.
+2025-03-24 19:03:50,386 - Attempting SSH connection to 10.0.0.40 with admin:password4
+2025-03-24 19:03:50,439 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:50,999 - SSH authentication failed.
+2025-03-24 19:03:50,999 - Attempting SSH connection to 10.0.0.40 with admin:password2
+2025-03-24 19:03:51,051 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:51,629 - SSH authentication failed.
+2025-03-24 19:03:51,630 - Attempting SSH connection to 10.0.0.40 with admin:password1
+2025-03-24 19:03:51,669 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:52,246 - SSH authentication failed.
+2025-03-24 19:03:52,246 - Attempting SSH connection to 10.0.0.40 with admin:password3
+2025-03-24 19:03:52,299 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:52,924 - SSH authentication failed.
+2025-03-24 19:03:52,926 - Attempting SSH connection to 10.0.0.40 with user:pass4
+2025-03-24 19:03:52,979 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:53,665 - SSH authentication failed.
+2025-03-24 19:03:53,665 - Attempting SSH connection to 10.0.0.40 with user:password4
+2025-03-24 19:03:53,708 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:03:53,838 - Authentication (password) failed.
+2025-03-24 19:03:54,197 - Authentication (password) successful!
+2025-03-24 19:03:54,198 - SSH login succeeded on 10.0.0.40 with user:password4
+2025-03-24 19:03:54,319 - Authentication (password) failed.
+2025-03-24 19:03:54,824 - [chan 0] Opened sftp connection (server version 3)
+2025-03-24 19:03:54,840 - Worm file mutated to netvermin_ea8cda03.py
+2025-03-24 19:03:54,842 - Transferring mutated worm netvermin_ea8cda03.py via SSH...
+2025-03-24 19:03:54,889 - [chan 1] Opened sftp connection (server version 3)
+2025-03-24 19:03:54,934 - Authentication (password) failed.
+2025-03-24 19:03:55,022 - [chan 1] sftp session closed.
+2025-03-24 19:03:55,030 - Remote worm deployed. Executing worm via SSH...
+2025-03-24 19:03:55,720 - Authentication (password) failed.
+2025-03-24 19:03:55,836 - Authentication (password) failed.
+2025-03-24 19:03:56,215 - Authentication (password) failed.
+2025-03-24 19:04:21,942 - 
+2025-03-24 19:04:21,943 - tar: Removing leading `/' from member names
+2025-03-24 19:03:57,495 - Ransomware operation completed on this host.
+2025-03-24 19:03:57,503 - Scanning local interfaces
+2025-03-24 19:03:57,505 - Interface found: {'addr': '127.0.0.1', 'netmask': '255.0.0.0', 'peer': '127.0.0.1'}
+2025-03-24 19:03:57,511 - Interface found: {'addr': '10.0.0.40', 'netmask': '255.255.255.0', 'broadcast': '10.0.0.255'}
+2025-03-24 19:03:57,520 - Scanning routes...
+2025-03-24 19:03:57,549 - Routes discovered: [IPNetwork('10.0.0.0/24'), IPNetwork('169.254.0.0/16')]
+2025-03-24 19:03:57,550 - Found 3 subnets.
+2025-03-24 19:03:57,550 - Permitted subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:03:57,551 - Splitting subnets...
+2025-03-24 19:03:57,551 - Generated 1 subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:03:57,551 - Updating infected log...
+2025-03-24 19:03:57,551 - Scanning subnets for new targets...
+2025-03-24 19:04:00,464 - Discovered hosts: ['10.0.0.30', '10.0.0.20']
+2025-03-24 19:04:00,465 - Attempting SSH connection...
+2025-03-24 19:04:00,466 - Attempting SSH connection to 10.0.0.30 with admin:password1
+2025-03-24 19:04:00,517 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:01,075 - SSH authentication failed.
+2025-03-24 19:04:01,075 - Attempting SSH connection to 10.0.0.30 with admin:pass4
+2025-03-24 19:04:01,121 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:01,731 - SSH authentication failed.
+2025-03-24 19:04:01,731 - Attempting SSH connection to 10.0.0.30 with admin:password2
+2025-03-24 19:04:01,779 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:02,377 - SSH authentication failed.
+2025-03-24 19:04:02,378 - Attempting SSH connection to 10.0.0.30 with admin:password4
+2025-03-24 19:04:02,421 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:02,996 - SSH authentication failed.
+2025-03-24 19:04:02,997 - Attempting SSH connection to 10.0.0.30 with admin:password3
+2025-03-24 19:04:03,081 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:03,655 - SSH authentication failed.
+2025-03-24 19:04:03,655 - Attempting SSH connection to 10.0.0.30 with user:password1
+2025-03-24 19:04:03,695 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:03,866 - Authentication (password) failed.
+2025-03-24 19:04:04,303 - SSH authentication failed.
+2025-03-24 19:04:04,303 - Attempting SSH connection to 10.0.0.30 with user:pass4
+2025-03-24 19:04:04,354 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:04,510 - Authentication (password) failed.
+2025-03-24 19:04:04,904 - SSH authentication failed.
+2025-03-24 19:04:04,905 - Attempting SSH connection to 10.0.0.30 with user:password2
+2025-03-24 19:04:04,959 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:05,219 - Authentication (password) failed.
+2025-03-24 19:04:05,592 - SSH authentication failed.
+2025-03-24 19:04:05,593 - Attempting SSH connection to 10.0.0.30 with user:password4
+2025-03-24 19:04:05,641 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:05,771 - Authentication (password) failed.
+2025-03-24 19:04:06,458 - Authentication (password) failed.
+2025-03-24 19:04:06,477 - SSH authentication failed.
+2025-03-24 19:04:06,479 - Attempting SSH connection to 10.0.0.30 with user:password3
+2025-03-24 19:04:06,531 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:06,889 - Authentication (password) successful!
+2025-03-24 19:04:06,895 - SSH login succeeded on 10.0.0.30 with user:password3
+2025-03-24 19:04:07,580 - Authentication (password) failed.
+2025-03-24 19:04:07,612 - [chan 0] Opened sftp connection (server version 3)
+2025-03-24 19:04:07,629 - Worm file mutated to netvermin_d0f042c4.py
+2025-03-24 19:04:07,630 - Transferring mutated worm netvermin_d0f042c4.py via SSH...
+2025-03-24 19:04:07,705 - [chan 1] Opened sftp connection (server version 3)
+2025-03-24 19:04:07,848 - [chan 1] sftp session closed.
+2025-03-24 19:04:07,851 - Remote worm deployed. Executing worm via SSH...
+2025-03-24 19:04:08,173 - Authentication (password) failed.
+2025-03-24 19:04:08,797 - Authentication (password) failed.
+2025-03-24 19:04:09,494 - Authentication (password) failed.
+2025-03-24 19:04:23,659 - 
+2025-03-24 19:04:23,663 - tar: Removing leading `/' from member names
+2025-03-24 19:04:04,792 - Ransomware operation completed on this host.
+2025-03-24 19:04:04,794 - Scanning local interfaces
+2025-03-24 19:04:04,795 - Interface found: {'addr': '127.0.0.1', 'netmask': '255.0.0.0', 'peer': '127.0.0.1'}
+2025-03-24 19:04:04,796 - Interface found: {'addr': '10.0.0.30', 'netmask': '255.255.255.0', 'broadcast': '10.0.0.255'}
+2025-03-24 19:04:04,797 - Scanning routes...
+2025-03-24 19:04:04,872 - Routes discovered: [IPNetwork('10.0.0.0/24'), IPNetwork('169.254.0.0/16')]
+2025-03-24 19:04:04,872 - Found 3 subnets.
+2025-03-24 19:04:04,873 - Permitted subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:04,873 - Splitting subnets...
+2025-03-24 19:04:04,873 - Generated 1 subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:04,874 - Updating infected log...
+2025-03-24 19:04:04,874 - Scanning subnets for new targets...
+2025-03-24 19:04:07,696 - Discovered hosts: ['10.0.0.20']
+2025-03-24 19:04:07,696 - Attempting SSH connection...
+2025-03-24 19:04:07,700 - Attempting SSH connection to 10.0.0.20 with admin:password2
+2025-03-24 19:04:07,775 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:08,345 - SSH authentication failed.
+2025-03-24 19:04:08,346 - Attempting SSH connection to 10.0.0.20 with admin:password3
+2025-03-24 19:04:08,398 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:08,959 - SSH authentication failed.
+2025-03-24 19:04:08,960 - Attempting SSH connection to 10.0.0.20 with admin:password1
+2025-03-24 19:04:09,037 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:09,605 - SSH authentication failed.
+2025-03-24 19:04:09,607 - Attempting SSH connection to 10.0.0.20 with admin:password4
+2025-03-24 19:04:09,651 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:10,222 - Authentication (password) failed.
+2025-03-24 19:04:10,366 - SSH authentication failed.
+2025-03-24 19:04:10,367 - Attempting SSH connection to 10.0.0.20 with admin:pass4
+2025-03-24 19:04:10,410 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:10,841 - Authentication (password) failed.
+2025-03-24 19:04:10,984 - SSH authentication failed.
+2025-03-24 19:04:10,984 - Attempting SSH connection to 10.0.0.20 with user:password2
+2025-03-24 19:04:11,061 - Connected (version 2.0, client OpenSSH_8.9p1)
+2025-03-24 19:04:11,482 - Authentication (password) failed.
+2025-03-24 19:04:11,562 - Authentication (password) successful!
+2025-03-24 19:04:11,565 - SSH login succeeded on 10.0.0.20 with user:password2
+2025-03-24 19:04:12,683 - [chan 0] Opened sftp connection (server version 3)
+2025-03-24 19:04:12,703 - Worm file mutated to netvermin_cacec8e1.py
+2025-03-24 19:04:12,703 - Transferring mutated worm netvermin_cacec8e1.py via SSH...
+2025-03-24 19:04:12,828 - [chan 1] Opened sftp connection (server version 3)
+2025-03-24 19:04:12,970 - [chan 1] sftp session closed.
+2025-03-24 19:04:12,974 - Remote worm deployed. Executing worm via SSH...
+2025-03-24 19:04:14,462 - Authentication (password) failed.
+2025-03-24 19:04:15,206 - Authentication (password) failed.
+2025-03-24 19:04:19,810 - 
+2025-03-24 19:04:19,813 - tar: Removing leading `/' from member names
+2025-03-24 19:04:21,968 - Ransomware operation completed on this host.
+2025-03-24 19:04:21,969 - Scanning local interfaces
+2025-03-24 19:04:21,969 - Interface found: {'addr': '127.0.0.1', 'netmask': '255.0.0.0', 'peer': '127.0.0.1'}
+2025-03-24 19:04:21,969 - Interface found: {'addr': '10.0.0.20', 'netmask': '255.255.255.0', 'broadcast': '10.0.0.255'}
+2025-03-24 19:04:21,970 - Scanning routes...
+2025-03-24 19:04:21,983 - Routes discovered: [IPNetwork('10.0.0.0/24'), IPNetwork('169.254.0.0/16')]
+2025-03-24 19:04:21,985 - Found 3 subnets.
+2025-03-24 19:04:21,987 - Permitted subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:21,987 - Splitting subnets...
+2025-03-24 19:04:21,987 - Generated 1 subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:21,988 - Updating infected log...
+2025-03-24 19:04:21,991 - Scanning subnets for new targets...
+2025-03-24 19:04:24,758 - Discovered hosts: []
+2025-03-24 19:04:24,760 - Attempting SSH connection...
+2025-03-24 19:04:24,760 - No new targets found. Self-mutating to ensure uniqueness.
+2025-03-24 19:04:24,767 - Worm file mutated to netvermin_e3faffcb.py
+2025-03-24 19:04:24,769 - Self-mutation complete. New worm file: /tmp/default/netvermin_e3faffcb.py
+2025-03-24 19:04:25,196 - Scanning local interfaces
+2025-03-24 19:04:25,205 - Interface found: {'addr': '127.0.0.1', 'netmask': '255.0.0.0', 'peer': '127.0.0.1'}
+2025-03-24 19:04:25,207 - Interface found: {'addr': '10.0.0.20', 'netmask': '255.255.255.0', 'broadcast': '10.0.0.255'}
+2025-03-24 19:04:25,211 - Scanning routes...
+2025-03-24 19:04:25,219 - Routes discovered: [IPNetwork('10.0.0.0/24'), IPNetwork('169.254.0.0/16')]
+2025-03-24 19:04:25,221 - Found 3 subnets.
+2025-03-24 19:04:25,222 - Permitted subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:25,222 - Splitting subnets...
+2025-03-24 19:04:25,222 - Generated 1 subnets: [IPNetwork('10.0.0.0/24')]
+2025-03-24 19:04:25,222 - Updating infected log...
+2025-03-24 19:04:25,223 - Scanning subnets for new targets...
+2025-03-24 19:04:28,054 - Discovered hosts: []
+2025-03-24 19:04:28,057 - Attempting SSH connection...
+2025-03-24 19:04:28,057 - No new targets found and already self-mutated once. Terminating propagation.
