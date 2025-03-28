@@ -17,16 +17,16 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 ### Prerequisites
   
 - VirtualBox or any other virtualization software (for creating isolated test environments)
-- Linux (for the VM operating system)
-  - Windows-compatible worm is a work in progress, also looking into `pyinstaller` to bundle worm script and dependencies into standalone Windows executable
+- Linux / Windows (for the VM operating system)
 - Python (recommended Python 3.10 or later)
-- SSH
+- OpenSSH Server
   
 Install the required packages on all VMs:
 ```bash
 sudo apt install python3 python3-pip openssh-server
-pip3 install --user netifaces netaddr
+pip3 install --user netifaces netaddr paramiko cryptography
 ```
+For Windows VMs, install Microsoft Visual C++ 14.0 or greater via [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (required for building `netifaces` package).
 
 Execute the worm via:
 ```bash
