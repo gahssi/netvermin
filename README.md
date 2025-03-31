@@ -5,12 +5,12 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 
 ### Features
 
-- **Network scanning.** Uses `socket` library and system route parsing to discover hosts on the local network. Comparable in speed to using `nmap` with aggressive timing.
+- **Network scanning.** Uses `socket` library and system route parsing to discover hosts on the local network. Paired with thread-pooling, comparable in speed to using `nmap` with aggressive timing.
 - **SSH-based propagation.** Attempts a dictionary attack to crack hosts' SSH credentials.
   - **SMB-based propagation** is a work in progress.
-- **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a note regarding the attack scenario.
+- **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a text note regarding the attack scenario.
 - **Polymorphism.** Each mutation creates a new worm variant with unique encryption parameters.
-- **Logging.** Detailed logging is implemented using a custom colorized formatter.
+- **Logging.** Detailed logging is implemented using a colorized formatter.
 
 ---
 
