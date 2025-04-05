@@ -14,7 +14,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 
 ## exverminator
 
-Defense module implementation responsible for Snort and Falco alert aggregation and automated response
+Worm defense implementation responsible for Snort and Falco alert aggregation and automated response
 
 ---
 
