@@ -1,7 +1,7 @@
 # netvermin
 Proof-of-concept network worm written in Python. Developed for CMPT 783 final project.
 
-> **PLEASE READ:** This project is for **educational and research purposes only**. It is intended to demonstrate malware development techniques in a controlled test environment. **Do not deploy or use this code on production systems or any network without proper authorization.**
+> **PLEASE READ:** This project is for **educational and research purposes only**. It is intended to demonstrate malware development techniques in a controlled test environment. Do not deploy or use this code on production systems or any network without proper authorization.
 
 ### Features
 
@@ -11,6 +11,10 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 - **Payload simulation.** Encrypts infected user's files using AES-GCM and leaves a text note regarding the attack scenario.
 - **Polymorphism.** Each mutation creates a new worm variant with unique encryption parameters.
 - **Logging.** Detailed logging is implemented using a colorized formatter.
+
+## exverminator
+
+Defense module implementation responsible for Snort and Falco alert aggregation and automated response
 
 ---
 
