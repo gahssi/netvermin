@@ -3,12 +3,13 @@
 Audit Script
 
 This script audits the worm's activity on a target Ubuntu machine by reading the
-dmsg.log file created in the user's home directory, checking for key events such as:
-  - Ransomware operation completion
-  - Worm mutation events 
-  - File shredding events
-It also checks for the existence of critical files/directories (like openme.txt and ~/Temp)
-and whether any worm process (matching "netvermin_") is still running.
+dmsg.log file (located in the user's home directory). It reports on:
+  - Ransomware operation status.
+  - Count of worm mutation events.
+  - Count of file shredding (cleanup) events.
+  - Existence of key files/directories (openme.txt and ~/Temp).
+  - Number of error messages found in the log.
+  - Whether any worm process (matching "netvermin_") is still running.
 A summary report is printed to the console.
 """
 
