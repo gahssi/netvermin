@@ -30,6 +30,9 @@ def count_log_entries(lines, pattern):
     count = sum(1 for line in lines if regex.search(line))
     return count
 
+def count_errors(lines):
+    return sum(1 for line in lines if "error" in line.lower())
+
 def check_worm_process_running():
     """Check for any running process whose name includes 'netvermin_'."""
     try:
@@ -52,6 +55,7 @@ def main():
     ransomware_success = any("Ransomware operation completed on this host" in line for line in lines)
     mutation_events = count_log_entries(lines, r"Worm file mutated to")
     shredding_events = count_log_entries(lines, r"Securely shredded and removed")
+    error_count = count_errors(lines)
     
     openme_exists = check_file_exists(openme_file)
     temp_exists = check_file_exists(temp_dir)
@@ -63,6 +67,7 @@ def main():
     print(f"Ransomware operation: {'Successful' if ransomware_success else 'Not detected'}")
     print(f"Worm mutation events detected: {mutation_events}")
     print(f"File shredding events detected: {shredding_events}")
+    print(f"Error messages detected: {error_count}")
     print(f"'openme.txt' exists: {'Yes' if openme_exists else 'No'}")
     print(f"Temp directory exists: {'Yes' if temp_exists else 'No'}")
     
