@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Evaluation Script for Worm Activity, Network Scanning, and Cleanup
+Audit Script
 
 This script audits the worm's activity on a target Ubuntu machine by reading the
 dmsg.log file (located in the user's home directory).
@@ -79,7 +79,7 @@ def main():
     
     lines = read_file_lines(log_file)
     
-    ransomware_success = any("Ransomware operation completed on this host" in line for line in lines)
+    zap_success = any("Ransomware operation completed on this host" in line for line in lines)
     mutation_events = count_log_entries(lines, r"Worm file mutated to")
     shredding_events = count_log_entries(lines, r"Securely shredded and removed")
     error_count = count_errors(lines)
@@ -100,7 +100,7 @@ def main():
 
     print(f"Log file: {log_file}")
     
-    print(f"Ransomware operation: {'Successful' if ransomware_success else 'Not detected'}")
+    print(f"Zap operation: {'Successful' if zap_success else 'Not detected'}")
     
     print(f"Worm mutation events: {mutation_events}")
     
@@ -125,9 +125,9 @@ def main():
     print(f"Infected hosts (from infected.log): {', '.join(infected_hosts) if infected_hosts else 'None'}")
     
     if worm_running:
-        print("Worm process still running with PIDs: " + ", ".join(worm_pids))
+        print("netvermin still running with PIDs: " + ", ".join(worm_pids))
     else:
-        print("No worm process running; aggregator likely killed it.")
+        print("No netvermin process running; exverminator possibly killed it.")
 
 if __name__ == "__main__":
     main()
