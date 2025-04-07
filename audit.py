@@ -10,6 +10,7 @@ A summary report is printed to the console.
 import os
 import re
 import subprocess
+from datetime import datetime
 
 def check_file_exists(path):
     return os.path.exists(path)
@@ -70,6 +71,54 @@ def check_worm_process_running():
         return False, []
     return False, []
 
+def parse_timestamp(line):
+    """
+    Extract and parse the timestamp from a log line.
+    Assumes the log line starts with a timestamp followed by " - ".
+    The timestamp format is:
+      YYYY-MM-DD HH:MM:SS,ffffff
+    """
+    try:
+        ts_str = line.split(" - ")[0]
+        return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S,%f")
+    except Exception:
+        return None
+
+def calculate_scan_duration(lines):
+    """
+    Calculate the duration (in seconds) from the first line containing
+    "Scanning subnets for new targets" to the first subsequent line containing "Discovered hosts:".
+    """
+    start_time = None
+    end_time = None
+    for line in lines:
+        if "Scanning subnets for new targets" in line and start_time is None:
+            start_time = parse_timestamp(line)
+        elif start_time and "Discovered hosts:" in line:
+            end_time = parse_timestamp(line)
+            break
+    if start_time and end_time:
+        return (end_time - start_time).total_seconds()
+    else:
+        return None
+    
+def calculate_dict_attack_duration(lines):
+    """
+    Calculate the duration (in seconds) from the first "Attempting SSH connection"
+    log line to the last "SSH login succeeded on" log line.
+    """
+    start_time = None
+    end_time = None
+    for line in lines:
+        if "Attempting SSH connection" in line and start_time is None:
+            start_time = parse_timestamp(line)
+        if "SSH login succeeded on" in line:
+            end_time = parse_timestamp(line)
+    if start_time and end_time:
+        return (end_time - start_time).total_seconds()
+    else:
+        return None
+
 def main():
     home = os.path.expanduser("~")
     log_file = os.path.join(home, "dmsg.log")
@@ -96,6 +145,9 @@ def main():
     
     worm_running, worm_pids = check_worm_process_running()
     
+    scan_duration = calculate_scan_duration(lines)
+    dict_attack_duration = calculate_dict_attack_duration(lines)
+
     print("----- Worm Evaluation Report -----")
 
     print(f"Log file: {log_file}")
@@ -118,6 +170,16 @@ def main():
         for ip, user, pwd in successful_ssh:
             print(f"  - SSH login succeeded on {ip} with {user}:{pwd}")
     
+    if scan_duration is not None:
+        print(f"Network scan duration: {scan_duration:.2f} seconds")
+    else:
+        print("Network scan duration: Not available")
+        
+    if dict_attack_duration is not None:
+        print(f"Dictionary attack duration: {dict_attack_duration:.2f} seconds")
+    else:
+        print("Dictionary attack duration: Not available")
+
     print(f"'openme.txt' exists: {'Yes' if openme_exists else 'No'}")
     
     print(f"Temp directory exists: {'Yes' if temp_exists else 'No'}")
