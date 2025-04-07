@@ -1,0 +1,5 @@
+json_output: true
+json_include_output_property: true
+http_output:
+  enabled: true
+  url: "http://10.0.1.14:9000/alerts"
