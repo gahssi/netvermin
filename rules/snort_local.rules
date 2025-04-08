@@ -1,3 +1,18 @@
-alert tcp $TARGETS any -> $TARGETS 22 (msg:"[SSH] Four consecutive failed SSH connection attempts detected"; flow:to_server; flags:S; detection_filter:track by_src, count 4, seconds 3; sid:100003; rev:3;)
+alert tcp $TARGETS any -> $TARGETS 22 (
+    msg:"[SSH] Four consecutive failed SSH connection attempts detected"; 
+    flow:to_server; 
+    flags:S; 
+    detection_filter:track by_src, 
+    count 4, seconds 3; 
+    sid:100003; 
+    rev:3;
+)
 
-alert tcp $TARGETS any -> any any (msg:"[SCAN] High rate of TCP SYN packets detected - possible worm scanning activity"; flags:S; detection_filter:track by_src, count 40, seconds 6; sid:100004; rev:2;)
+alert tcp $TARGETS any -> any any (
+    msg:"[SCAN] High rate of TCP SYN packets detected - possible worm scanning activity"; 
+    flags:S; 
+    detection_filter:track by_src, 
+    count 40, seconds 6; 
+    sid:100004; 
+    rev:2;
+)
