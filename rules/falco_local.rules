@@ -1,69 +1,60 @@
-- macro: bin_dir
-  condition: (fd.directory in (/bin, /sbin, /usr/bin, /usr/sbin))
-
-- list: package_mgmt_binaries
-  items: [rpm_binaries, deb_binaries, update-alternat, gem, npm, python_package_managers, sane-utils.post, alternatives, chef-client, apk, snapd]
-
-- macro: package_mgmt_procs
-  condition: (proc.name in (package_mgmt_binaries))
-
-- rule: Write below binary dir
-  desc: >
-    Trying to write to any file below specific binary directories can serve as an auditing rule to track general system changes.
-    Such rules can be noisy and challenging to interpret, particularly if your system frequently undergoes updates. However, careful
-    profiling of your environment can transform this rule into an effective rule for detecting unusual behavior associated with system
-    changes, including compliance-related cases.
-  condition: >
-    open_write and evt.dir=<
-    and bin_dir
-    and not package_mgmt_procs
-  output: File below a known binary directory opened for writing (file=%fd.name pcmdline=%proc.pcmdline gparent=%proc.aname[2] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info pid=%proc.pid)
-  priority: ERROR
-
 - rule: Suspicious Execution from Temporary Directory
   desc: >
-    Detects execution of binaries from temporary directories (e.g., /home/*/Temp),
-    which is unusual for standard system software and may indicate worm propagation.
-  condition: evt.type = execve and proc.exepath contains "/Temp"
-  output: "Suspicious execution from temporary directory: %proc.exepath; cmd=%proc.cmdline pid=%proc.pid"
+    Alert when a process executes a binary from a temporary directory (e.g., /Temp or /temp),
+    which is unusual for system software. Parent process details are included to help pinpoint suspicious activity.
+  condition: >
+    evt.type = execve and (proc.exepath contains "/Temp" or proc.exepath contains "/temp")
+  output: >
+    Suspicious execution from temporary directory detected: exe=%proc.exepath; command=%proc.cmdline; parent_cmd=%proc.pcmdline; pid=%proc.pid
   priority: CRITICAL
   tags: [worm, execution]
 
 - rule: Host Drift Detected (chmod)
   desc: >
-    Detects when a file on the host is modified with chmod (or equivalent)
-    to add execute permissions. This change may indicate an unauthorized modification,
-    such as a worm dropping or modifying an executable.
-  condition: evt.type in (chmod, fchmod, fchmodat) and evt.rawres >= 0 and ((evt.arg.mode contains "S_IXUSR") or (evt.arg.mode contains "S_IXGRP") or (evt.arg.mode contains "S_IXOTH"))
-  output: "Host drift detected: file %fd.name now has execute permission (mode=%evt.arg.mode) via %proc.name; cmd=%proc.cmdline; pid=%proc.pid"
+    Alert when file permissions are changed using chmod (or its variants) to add execute permissions.
+    The output includes both current and parent process details.
+  condition: >
+    evt.type in (chmod, fchmod, fchmodat) and evt.rawres >= 0 and ((evt.arg.mode contains "S_IXUSR") or (evt.arg.mode contains "S_IXGRP") or (evt.arg.mode contains "S_IXOTH"))
+  output: >
+    Host drift detected: file=%fd.name now has execute permission (mode=%evt.arg.mode) modified by process=%proc.name (command=%proc.cmdline); parent_cmd=%proc.pcmdline; pid=%proc.pid
   priority: ERROR
   tags: [host, filesystem, drift, mitre_execution]
 
 - rule: Host Drift Detected (open+create)
   desc: >
-    Detects when a new executable file is created on the host via an open or create call
-    that results in execution permissions being set. This may indicate a worm dropping or modifying
-    a binary.
-  condition: evt.type in (open, openat, openat2, creat) and evt.rawres >= 0 and evt.is_open_exec = true
-  output: "Host drift detected (open+create): file=%evt.arg.filename, name=%evt.arg.name, mode=%evt.arg.mode, evt_type=%evt.type, user=%user.name, process=%proc.name, cmd=%proc.cmdline, pid=%proc.pid"
+    Alert when a new executable file is created via open or creat that is marked executable.
+    The alert includes full process and parent process details.
+  condition: >
+    evt.type in (open, openat, openat2, creat) and evt.rawres >= 0 and evt.is_open_exec = true
+  output: >
+    Host drift detected (open+create): file=%evt.arg.filename, name=%evt.arg.name, mode=%evt.arg.mode, evt=%evt.type; process=%proc.name (command=%proc.cmdline); parent_cmd=%proc.pcmdline; pid=%proc.pid
   priority: ERROR
   tags: [host, filesystem, drift, mitre_execution, T1059]
 
-- rule: Python Writing or Creating Below /home Directory
+- rule: Python Writing/Creating in /home Directory
   desc: >
-    Detects when a Python process either opens a file for writing or creates a file
-    under the /home directory. This behavior may indicate that a worm (or abnormal Python activity)
-    is dropping or modifying files.
-  condition: ( (evt.type in (open, openat) and evt.is_open_write=true) or evt.type = creat ) and proc.name in (python, python3) and evt.arg.path startswith "/home/"
-  output: "Python process %proc.name writing/creating file in /home: %evt.arg.path; cmd=%proc.cmdline"
+    Alert when a Python process writes or creates a file under the /home directory.
+    This is useful to flag potential worm behavior (e.g., dropping or modifying files) and includes key parent/child fields.
+  condition: >
+    ( (evt.type in (open, openat) and evt.is_open_write = true) or evt.type = creat )
+    and proc.name in (python, python3)
+    and evt.arg.path startswith "/home/"
+  output: >
+    Python process %proc.name writing/creating file: %evt.arg.path; command=%proc.cmdline; parent_cmd=%proc.pcmdline; exe_path=%proc.exepath; pid=%proc.pid
   priority: CRITICAL
   tags: [host, filesystem, worm, decryption]
 
-- rule: Detect uname -s Execution
+- rule: Detect OS Fingerprinting Commands
   desc: >
-    Detects when the 'uname -s' command is executed. This may be used by an adversary (or worm)
-    to determine system information.
-  condition: evt.type = execve and proc.name = "uname" and proc.cmdline contains "-s"
-  output: "uname -s executed: %proc.cmdline pid=%proc.pid"
+    Detects execution of commands used for active OS fingerprinting.
+  condition: >
+    evt.type = execve and (
+      (proc.name = "uname" and (proc.cmdline contains "-s" or proc.cmdline contains "-a" or proc.cmdline contains "-r"))
+      or (proc.name = "lsb_release" and proc.cmdline contains "-a")
+      or (proc.name = "cat" and (proc.cmdline contains "/etc/os-release" or proc.cmdline contains "/etc/issue"))
+      or (proc.name = "hostname")
+    )
+  output: >
+    OS fingerprinting command executed: command=%proc.cmdline; parent_cmd=%proc.pcmdline; pid=%proc.pid
   priority: INFO
   tags: [system, reconnaissance]
