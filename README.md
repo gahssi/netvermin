@@ -19,14 +19,14 @@ Worm defense implementation responsible for Snort and Falco alert aggregation an
 ---
 
 ### Repository Contents
-- VM images folder: https://1sfu-my.sharepoint.com/:f:/g/personal/aya119_sfu_ca/EiXP9f_qqlJKorVUc3mPux0Bd4S3hBx_cUjb0T9BSKU3Pg?e=cmnnvY 
-  - router-test, 
-  - ubuntu-test-attacker, 
-  - ubuntu-test-2, 
-  - ubuntu-test-3, 
-  - ubuntu-test-4, 
-  - ubuntu-test-defense, 
-  - Windows10
+- VM images package: https://1sfu-my.sharepoint.com/:f:/g/personal/aya119_sfu_ca/EiXP9f_qqlJKorVUc3mPux0Bd4S3hBx_cUjb0T9BSKU3Pg?e=cmnnvY 
+  - router-test (Router/Firewall) 
+  - ubuntu-test (Attacker) 
+  - ubuntu-test-2 (Target Linux 1)
+  - ubuntu-test-3 (Target Linux 2)
+  - ubuntu-test-4 (Target Linux 3)
+  - ubuntu-test-defense (Defense)
+  - Windows10 (Target Windows)
   
 - netvermin.py – worm script
 
@@ -54,6 +54,7 @@ pip3 install flask # only on defense VM
 ```
 
 The Windows VMs is pre-installed with Microsoft Visual C++ 14.0 from [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (required for building `netifaces` package).
+
 
 ## Setup and Execution Instructions
 
@@ -106,6 +107,11 @@ In a separate terminal, start the exverminator:
 sudo python3 exverminator.py
 ```
 
+Optionally, you can view the Falco logs on the target Linux machines:
+```bash
+sudo falco
+```
+
 The exverminator aggregates alerts from both Snort and Falco and automates the response (including process termination and cleanup) once the infection threshold is exceeded.
 
 ## Test Cases
@@ -121,7 +127,7 @@ We have designed three primary test cases:
 - Expected Outcome: The worm infects the Linux targets and the Windows target.
 
 **Test Case 3:**  
-- Configuration: Similar to test case 1, except after you run the worm from a Linux attacker machine, start the defense sensor and run the exverminator defense program.
+- Configuration: Similar to test case 1, except after you run the worm from a Linux attacker machine, start the **defense sensor** and run the exverminator defense program.
 - Expected Outcome: The exverminator defense system aggregates alerts from IDS sensors, reaches the configured alert threshold, and promptly terminates and cleans up the worm on the infected target machines.
 
 
