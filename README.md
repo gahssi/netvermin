@@ -14,7 +14,7 @@ Proof-of-concept network worm written in Python. Developed for CMPT 783 final pr
 
 ## exverminator
 
-Worm defense implementation responsible for Snort and Falco alert aggregation and automated response (currently Linux-only)
+Worm defense implementation responsible for Snort and Falco alert aggregation and automated response
 
 ---
 
@@ -30,12 +30,23 @@ Install the required packages on all VMs:
 sudo apt install python3 python3-pip openssh-server
 pip3 install --user netifaces netaddr paramiko cryptography
 ```
+
+Install the required packages on VMs that require a defense:
+```bash
+pip install flask
+```
+
 For Windows VMs, install Microsoft Visual C++ 14.0 or greater via [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (required for building `netifaces` package).
 
-Execute the worm via:
+Execute the worm attack via:
 ```bash
 chmod +x netvermin.py
 python3 netvermin.py
+```
+
+Execute the worm defense via:
+```bash
+python3 exverminator.py
 ```
 
 ### Disclaimer
