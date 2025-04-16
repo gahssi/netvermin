@@ -1,4 +1,4 @@
-alert tcp $TARGETS any -> $TARGETS 22 (
+alert tcp any any -> $TARGETS 22 (
     msg:"[SSH] Four consecutive failed SSH connection attempts detected"; 
     flow:to_server; 
     flags:S; 
