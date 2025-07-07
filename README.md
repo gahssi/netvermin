@@ -19,7 +19,7 @@ Worm defense implementation responsible for Snort and Falco alert aggregation an
 ---
 
 ### Repository Contents
-- VM images package: https://1sfu-my.sharepoint.com/:f:/g/personal/aya119_sfu_ca/EiXP9f_qqlJKorVUc3mPux0Bd4S3hBx_cUjb0T9BSKU3Pg?e=cmnnvY 
+- VM images package: \*removed\*
   - router-test (Router/Firewall) 
   - ubuntu-test (Attacker) 
   - ubuntu-test-2 (Target Linux 1)
